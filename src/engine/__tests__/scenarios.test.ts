@@ -1,8 +1,9 @@
 // Mandatory scenarios G1–G11 from REGLES.md v0.2 §10 (G12 is in properties.test.ts).
 import { describe, expect, it } from 'vitest';
 import { cloneBoard, type Spawner } from '../board';
-import { checkChain, countChains, legalChains } from '../chains';
+import { checkChain, countChains, legalChains, traceStatus } from '../chains';
 import { makeConfig } from '../config';
+import { isNearFrenzy } from '../score';
 import { applyMove, createGame, ensurePlayable, isLegalMove, moveError, replay, tick } from '../game';
 import { boardToString, parseBoard } from '../notation';
 import { nextInt } from '../rng';
@@ -282,5 +283,34 @@ describe('applyMove', () => {
     const snapshot = JSON.stringify(s);
     trace(s, [[2, 0], [2, 1], [2, 2]]);
     expect(JSON.stringify(s)).toBe(snapshot);
+  });
+});
+
+describe('traceStatus (live feedback while tracing)', () => {
+  const s = setup('S T R O / O R T S');
+  const st = (cells: [number, number][], cfg = s.config) => traceStatus(s.board, path(...cells), cfg);
+  it('classifies prefixes', () => {
+    expect(st([])).toBe('empty');
+    expect(st([[0, 0]])).toBe('partial');
+    expect(st([[0, 0], [0, 1]])).toBe('partial');
+    expect(st([[0, 0], [0, 1], [0, 2]])).toBe('valid');
+    expect(st([[0, 0], [0, 1], [0, 2], [0, 3]])).toBe('valid');
+    expect(st([[0, 3], [0, 2]])).toBe('partial'); // descending O → R
+    expect(st([[0, 0], [0, 2]])).toBe('invalid'); // not adjacent
+    expect(st([[0, 1], [0, 0], [1, 0]])).toBe('invalid'); // T → S → O
+    expect(st([[0, 3]])).toBe('partial'); // a lone orca can start a descending trace
+    expect(st([[0, 3]], { ...s.config, allowDescendingTrace: false })).toBe('invalid');
+    expect(st([[0, 2], [0, 3]], { ...s.config, allowDescendingTrace: false })).toBe('invalid'); // R → O can't reach length 3
+  });
+});
+
+describe('isNearFrenzy', () => {
+  it('flags a shark one chain away from its frenzy', () => {
+    const config = makeConfig(); // threshold 9, a 1-2-3 chain gives a shark 3
+    expect(isNearFrenzy({ id: 1, tier: 3, energy: 6 }, config)).toBe(true);
+    expect(isNearFrenzy({ id: 1, tier: 3, energy: 5 }, config)).toBe(false);
+    expect(isNearFrenzy({ id: 1, tier: 4, energy: 8 }, config)).toBe(false); // orcas leave
+    expect(isNearFrenzy({ id: 1, tier: 1, energy: 8 }, config)).toBe(false);
+    expect(isNearFrenzy({ id: 1, tier: 2, energy: 8 }, config)).toBe(false); // a tuna never ends a chain of 3+
   });
 });
