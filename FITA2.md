@@ -56,3 +56,18 @@ npm run sim                                    # totes les variants, ~40 s
 npm run sim -- --variants=candA,candB --games=500
 npm run sim -- --variants=base --spawnWeights=38,30,24,8 --frenzyThreshold=12
 ```
+
+## Decisió (Miquel): opció B → REGLES.md v0.4
+
+Valors per defecte nous a `config.ts`: `fullChainFrenzy: false`, pesos 33/30/23/14, `frenzyThreshold: 9`, `minValidMoves: 3`. Al simulador, `base` és ara la v0.4, `v0.3` i `v0.2` són les regles anteriors, i les altres variants canvien un sol valor respecte de la v0.4.
+
+Execució amb els valors nous (`npm run sim`, 27 s):
+
+| Variant (respecte de la v0.4) | Mín. cadenes | c4 possible | Remenats | Orques % | Frenesís | p90 real | greedy/random |
+|---|---:|---:|---:|---|---:|---:|---:|
+| **v0.4 (base)** | 3 | 53% | 2,3% | 14→8→6→6→6 | 2,2 | 150 s | 1,60 |
+| tauler 7×7 | 3 | 56% | **0,89%** | 14→7→6→6→5 | 1,9 | 147 s | 1,66 |
+| frenesí 6 | 3 | 61% | 1,9% | 14→8→7→7→7 | 5,4 | 159 s | 1,66 |
+| frenesí 12 | 3 | 50% | 2,6% | 14→7→6→5→6 | 0,9 | 145 s | 1,56 |
+
+El tauler 7×7 és l'única variant que baixa els remenats per sota de l'1% i compleix tots els objectius excepte la ràtio greedy+frenzy. Les orques passen del 14% inicial al 6% durant les 10 primeres jugades i a partir d'aquí es mantenen estables.
