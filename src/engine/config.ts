@@ -2,7 +2,7 @@
 import type { GameConfig } from './types';
 
 export const DEFAULT_CONFIG: GameConfig = {
-  boardSize: 6,
+  boardSize: 7,
   tiers: [
     { energyValue: 1, basePoints: 10, spawnWeight: 33 },
     { energyValue: 2, basePoints: 30, spawnWeight: 30 },

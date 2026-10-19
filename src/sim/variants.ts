@@ -11,18 +11,18 @@ export const VARIANTS: Readonly<Record<string, { label: string; overrides: Confi
   'v0.2': {
     label: 'v0.2 (orca es queda, +3 s per frenesí sense límit)',
     overrides: {
-      ...withSpawnWeights([30, 28, 24, 18]), frenzyThreshold: 6, minValidMoves: 1, fullChainFrenzy: true,
+      boardSize: 6, ...withSpawnWeights([30, 28, 24, 18]), frenzyThreshold: 6, minValidMoves: 1, fullChainFrenzy: true,
       maxTierLeaves: false, timeBonusMs: { frenzy: 3000 }, maxTimeBonusMs: Number.MAX_SAFE_INTEGER,
     },
   },
-  base: { label: 'v0.4 per defecte (= candidata B)', overrides: {} },
+  base: { label: 'v0.4 per defecte (candidata B, tauler 7×7)', overrides: {} },
   'v0.3': {
     label: 'v0.3 (c4 fa frenesí, pesos 30/28/24/18, frenesí 6, mín. 1 cadena)',
-    overrides: { ...withSpawnWeights([30, 28, 24, 18]), frenzyThreshold: 6, minValidMoves: 1, fullChainFrenzy: true },
+    overrides: { boardSize: 6, ...withSpawnWeights([30, 28, 24, 18]), frenzyThreshold: 6, minValidMoves: 1, fullChainFrenzy: true },
   },
   thr6: { label: 'frenzyThreshold 6', overrides: { frenzyThreshold: 6 } },
   thr12: { label: 'frenzyThreshold 12', overrides: { frenzyThreshold: 12 } },
-  size7: { label: 'boardSize 7', overrides: { boardSize: 7 } },
+  size6: { label: 'boardSize 6', overrides: { boardSize: 6 } },
   adj4: { label: 'adjacency 4', overrides: { adjacency: 4 } },
   noDesc: { label: 'sense traçat descendent', overrides: { allowDescendingTrace: false } },
   wA: { label: 'pesos 35/30/25/10', overrides: withSpawnWeights([35, 30, 25, 10]) },
@@ -31,7 +31,7 @@ export const VARIANTS: Readonly<Record<string, { label: string; overrides: Confi
   // Candidates from the exploration (see FITA2.md).
   candA: {
     label: 'A: v0.3 + pesos 38/30/24/8, frenesí 12, mín. 3 cadenes',
-    overrides: { ...withSpawnWeights([38, 30, 24, 8]), frenzyThreshold: 12, fullChainFrenzy: true },
+    overrides: { ...withSpawnWeights([38, 30, 24, 8]), frenzyThreshold: 12, fullChainFrenzy: true, boardSize: 6 },
   },
 };
 
