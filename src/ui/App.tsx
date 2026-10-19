@@ -128,10 +128,11 @@ export function App() {
   );
 }
 
+/** Predator first: each animal eats the one to its right. */
 function FoodChain({ theme, large = false }: { theme: Theme; large?: boolean }) {
   return (
     <ol className={`food-chain${large ? ' large' : ''}`} aria-label={STRINGS.helpChain}>
-      {theme.levels.map((level, i) => {
+      {[...theme.levels].reverse().map((level, i) => {
         return (
           <li key={level.id}>
             {i > 0 && <span className="arrow" aria-hidden="true"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>}
