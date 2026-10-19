@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { isFull } from '../board';
 import { countChains, legalChains } from '../chains';
-import { makeConfig, type ConfigOverrides } from '../config';
+import { FIVE_TIERS, makeConfig, type ConfigOverrides } from '../config';
 import { applyMove, createGame, tick } from '../game';
 import { nextInt } from '../rng';
 import type { GameConfig, GameEvent } from '../types';
@@ -60,6 +60,8 @@ describe('G12: random-game properties', () => {
     ['7x7, frenzy 5', { boardSize: 7, frenzyThreshold: 5 }],
     ['minValidMoves 3', { minValidMoves: 3 }],
     ['time mode', { mode: 'time', durationMs: 30_000 }],
+    ['five tiers', FIVE_TIERS],
+    ['many golden animals and octopuses', { goldenChance: 0.3, wildChance: 0.15 }],
   ];
   it.each(variants)('100 games: %s', (_, overrides) => {
     playRandomGames(100, makeConfig({ mode: 'moves', ...overrides }));

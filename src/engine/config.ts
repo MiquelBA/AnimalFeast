@@ -40,6 +40,22 @@ export const DEFAULT_CONFIG: GameConfig = {
 
 export type ConfigOverrides = Partial<GameConfig>;
 
+/**
+ * Five tiers (REGLES.md v0.5 §1): plankton below the sardine. Chains of 3, 4 or 5; the full chain is
+ * worth the most. Tuna and shark gather energy; the orca still eats and leaves.
+ */
+export const FIVE_TIERS: ConfigOverrides = {
+  tiers: [
+    { energyValue: 1, basePoints: 5, spawnWeight: 24 },
+    { energyValue: 1, basePoints: 10, spawnWeight: 24 },
+    { energyValue: 2, basePoints: 30, spawnWeight: 22 },
+    { energyValue: 3, basePoints: 100, spawnWeight: 18 },
+    { energyValue: 4, basePoints: 300, spawnWeight: 12 },
+  ],
+  chainLengths: [3, 4, 5],
+  lengthMultiplier: { 3: 1, 4: 3, 5: 6 },
+};
+
 export function makeConfig(overrides: ConfigOverrides = {}, base: GameConfig = DEFAULT_CONFIG): GameConfig {
   return { ...base, ...overrides };
 }

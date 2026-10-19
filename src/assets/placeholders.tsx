@@ -87,3 +87,18 @@ export function Octopus({ color }: SpriteProps) {
     </svg>
   );
 }
+
+export function Plankton({ color }: SpriteProps) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+      <circle cx="24" cy="30" r="7" fill={color} {...STROKE} strokeWidth={2.5} />
+      <circle cx="78" cy="26" r="5" fill={color} {...STROKE} strokeWidth={2.5} />
+      <circle cx="80" cy="74" r="6" fill={color} {...STROKE} strokeWidth={2.5} />
+      <circle cx="20" cy="72" r="4" fill={color} {...STROKE} strokeWidth={2.5} />
+      <path d="M50 22 L50 30 M30 50 L38 50 M70 50 L62 50 M50 78 L50 70" stroke={OUTLINE} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="50" cy="50" r="20" fill={color} {...STROKE} />
+      <Eye x={43} y={48} r={7} />
+      <Eye x={58} y={48} r={7} />
+    </svg>
+  );
+}

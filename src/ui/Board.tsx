@@ -205,7 +205,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
           );
         })}
         {cell > 0 && display.ghosts.map((g, i) => (
-          <GhostTile key={`${display.frameId}-${g.animal.id}`} ghost={g} index={i} cell={cell} theme={theme} duration={display.duration} />
+          <GhostTile key={`${display.frameId}-${g.animal.id}`} ghost={g} index={i} cell={cell} theme={theme} tierCount={config.tiers.length} duration={display.duration} />
         ))}
         {cell > 0 && flashes.map((f, i) => f.type === 'flash' && (
           <div key={`${display.frameId}-f${i}`} className="flash" style={{ left: (f.pos.col + 0.5) * cell, top: (f.pos.row + 0.5) * cell, width: cell, height: cell, animationDuration: `${UI.anim.frenzy}ms` }} />
@@ -235,7 +235,7 @@ interface TileProps {
 }
 
 const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted, register }: TileProps) {
-  const level = animalLook(theme, animal);
+  const level = animalLook(theme, animal, config.tiers.length);
   const canCharge = minEnergyGain(animal.tier, config) > 0;
   const ratio = canCharge ? Math.min(1, animal.energy / config.frenzyThreshold) : 0;
   const pips = Math.min(UI.energyPips, Math.floor(ratio * UI.energyPips));
@@ -263,9 +263,9 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
   );
 });
 
-function GhostTile({ ghost, index, cell, theme, duration }: { ghost: Ghost; index: number; cell: number; theme: Theme; duration: number }) {
+function GhostTile({ ghost, index, cell, theme, tierCount, duration }: { ghost: Ghost; index: number; cell: number; theme: Theme; tierCount: number; duration: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const level = animalLook(theme, ghost.animal);
+  const level = animalLook(theme, ghost.animal, tierCount);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;

@@ -1,8 +1,11 @@
 // Rule variants (simulator and debug panel) (one change at a time from the defaults, plus older rule sets).
-import { DEFAULT_CONFIG, makeConfig, type ConfigOverrides } from './config';
+import { DEFAULT_CONFIG, FIVE_TIERS, makeConfig, type ConfigOverrides } from './config';
 import type { GameConfig } from './types';
 
-export function withSpawnWeights(weights: readonly number[], base: GameConfig = DEFAULT_CONFIG): ConfigOverrides {
+export function withSpawnWeights(
+  weights: readonly number[],
+  base: GameConfig = weights.length === FIVE_TIERS.tiers!.length ? makeConfig(FIVE_TIERS) : DEFAULT_CONFIG,
+): ConfigOverrides {
   if (weights.length !== base.tiers.length) throw new Error(`Expected ${base.tiers.length} spawn weights`);
   return { tiers: base.tiers.map((t, i) => ({ ...t, spawnWeight: weights[i] })) };
 }
@@ -17,6 +20,8 @@ export const VARIANTS: Readonly<Record<string, { label: string; overrides: Confi
   },
   base: { label: 'v0.5 per defecte (daurats 3%, pop 2%, tauler 7×7)', overrides: {} },
   'v0.4': { label: 'v0.4 (sense daurats ni pop)', overrides: { goldenChance: 0, wildChance: 0 } },
+  tiers5: { label: '5 nivells (plàncton), pesos 24/24/22/18/12', overrides: FIVE_TIERS },
+  tiers5x8: { label: '5 nivells en un tauler 8×8', overrides: { ...FIVE_TIERS, boardSize: 8 } },
   goldOnly: { label: 'només daurats (3%)', overrides: { wildChance: 0 } },
   wildOnly: { label: 'només pop (2%)', overrides: { goldenChance: 0 } },
   wild5: { label: 'pop 5%', overrides: { wildChance: 0.05 } },

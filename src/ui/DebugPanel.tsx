@@ -32,9 +32,10 @@ export function DebugPanel({ game, setup, onStart, onClose }: DebugPanelProps) {
   const start = () => {
     const seedValue = Number(seed);
     if (!Number.isInteger(seedValue)) { setMessage(T.badSeed); return; }
+    const tierCount = variantConfig(variant).tiers.length;
     let board: Board | undefined;
     try {
-      board = boardText.trim() ? parseBoard(boardText) : undefined;
+      board = boardText.trim() ? parseBoard(boardText, 1, tierCount) : undefined;
     } catch {
       setMessage(T.badBoard);
       return;
@@ -87,7 +88,7 @@ export function DebugPanel({ game, setup, onStart, onClose }: DebugPanelProps) {
           <textarea rows={4} value={boardText} onChange={(e) => setBoardText(e.target.value)} spellCheck={false} />
           <small>{T.boardHelp}</small>
         </label>
-        <button type="button" className="link-btn" onClick={() => setBoardText(boardToString(game.board).split(' / ').join('\n'))}>{T.copyBoard}</button>
+        <button type="button" className="link-btn" onClick={() => setBoardText(boardToString(game.board, game.config.tiers.length).split(' / ').join('\n'))}>{T.copyBoard}</button>
         {message && <p className="debug-message">{message}</p>}
         <p className="debug-note">{T.note}</p>
         <div className="debug-actions">

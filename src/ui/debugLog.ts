@@ -23,6 +23,6 @@ export function makeLog(state: GameState, variant: string, startBoard?: string):
 
 /** Rebuilds the game a log describes. */
 export function replayLog(log: MoveLog): GameState {
-  const board = log.startBoard ? parseBoard(log.startBoard) : undefined;
+  const board = log.startBoard ? parseBoard(log.startBoard, 1, log.config.tiers.length) : undefined;
   return replay({ seed: log.seed, config: log.config, board }, log.moves);
 }

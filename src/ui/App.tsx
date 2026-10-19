@@ -2,8 +2,9 @@
 import { useRef, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import { DEFAULT_CONFIG } from '../engine/config';
-import type { GameStats } from '../engine/types';
-import { DEFAULT_THEME, type Theme } from '../themes';
+import { minEnergyGain } from '../engine/score';
+import type { GameConfig, GameStats } from '../engine/types';
+import { DEFAULT_THEME, themeLevels, type Theme } from '../themes';
 import { Board } from './Board';
 import { STRINGS } from './strings';
 import { UI } from './uiConfig';
@@ -98,13 +99,13 @@ export function App() {
 
       <footer className="bottom">
         <button className="round-btn" onClick={() => openSheet('help')} aria-label={STRINGS.help}>?</button>
-        <FoodChain theme={theme} />
+        <FoodChain theme={theme} tierCount={config.tiers.length} />
         <button className="round-btn" onClick={g.pause} aria-label={STRINGS.pause} disabled={g.phase !== 'playing'}>
           <span className="pause-icon" aria-hidden="true" />
         </button>
       </footer>
 
-      {sheet === 'help' && <HelpModal theme={theme} onClose={closeSheet} />}
+      {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} />}
       {sheet === 'debug' && <DebugPanel game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
       {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
@@ -129,10 +130,10 @@ export function App() {
 }
 
 /** Predator first: each animal eats the one to its right. */
-function FoodChain({ theme, large = false }: { theme: Theme; large?: boolean }) {
+function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCount: number; large?: boolean }) {
   return (
     <ol className={`food-chain${large ? ' large' : ''}`} aria-label={STRINGS.helpChain}>
-      {[...theme.levels].reverse().map((level, i) => {
+      {[...themeLevels(theme, tierCount)].reverse().map((level, i) => {
         return (
           <li key={level.id}>
             {i > 0 && <span className="arrow" aria-hidden="true"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>}
@@ -147,14 +148,23 @@ function FoodChain({ theme, large = false }: { theme: Theme; large?: boolean }) 
   );
 }
 
-function HelpModal({ theme, onClose }: { theme: Theme; onClose: () => void }) {
+function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfig; onClose: () => void }) {
+  const tierCount = config.tiers.length;
+  const levels = themeLevels(theme, tierCount);
+  const rules = STRINGS.helpRules({
+    lengths: config.chainLengths,
+    multipliers: Object.entries(config.lengthMultiplier).map(([len, m]) => [Number(len), m] as [number, number]).filter(([, m]) => m > 1),
+    chargers: levels.filter((_, i) => minEnergyGain(i + 1, config) > 0).map((l) => l.definite),
+    top: levels[tierCount - 1].definite,
+    frenzyBonusS: config.timeBonusMs.frenzy / 1000,
+  });
   return (
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.helpTitle}>
         <h2>{STRINGS.helpTitle}</h2>
-        <FoodChain theme={theme} large />
+        <FoodChain theme={theme} tierCount={tierCount} large />
         <ul className="rules">
-          {STRINGS.helpRules.map((r) => <li key={r}>{r}</li>)}
+          {rules.map((r) => <li key={r}>{r}</li>)}
         </ul>
         <button className="primary-btn" onClick={onClose}>{STRINGS.close}</button>
       </div>

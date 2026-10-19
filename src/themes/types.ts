@@ -1,10 +1,11 @@
 // A theme is pure data: it gives names, colours and sprites to the engine's tiers.
 
 export interface ThemeLevel {
-  readonly tier: number;
   readonly id: string;
   /** Catalan display name. */
   readonly name: string;
+  /** The name with its article, lowercase, for sentences ("l'orca"). */
+  readonly definite: string;
   readonly color: string;
   /** Key resolved by the UI's spriteRegistry. */
   readonly sprite: string;
@@ -22,7 +23,10 @@ export interface Theme {
   readonly id: string;
   readonly worldName: string;
   readonly background: { readonly from: string; readonly to: string };
-  /** Ordered by tier, starting at 1. */
+  /**
+   * The world's full food chain, lowest first. A game with fewer tiers uses the top ones
+   * (4 tiers in the ocean: sardine to orca; 5 tiers adds plankton below).
+   */
   readonly levels: readonly ThemeLevel[];
   /** The wildcard piece (REGLES.md §9). */
   readonly wild: ThemeSpecial;

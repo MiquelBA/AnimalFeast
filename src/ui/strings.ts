@@ -11,11 +11,14 @@ export const STRINGS = {
   tapToStart: 'Traça una cadena per començar',
   helpTitle: 'Com es juga',
   helpChain: 'La cadena alimentària',
-  helpRules: [
-    'Llisca el dit per sobre de 3 o 4 animals seguits de la cadena, en qualsevol direcció (també en diagonal i girant).',
+  /** Help rules for the current rules: chain lengths, length multipliers and who gathers energy. */
+  helpRules: (o: { lengths: readonly number[]; multipliers: readonly [number, number][]; chargers: readonly string[]; top: string; frenzyBonusS: number }) => [
+    `Llisca el dit per sobre de ${listOr(o.lengths)} animals seguits de la cadena, en qualsevol direcció (també en diagonal i girant).`,
     'Les preses desapareixen i el depredador es queda. Els animals de dalt cauen.',
-    'La cadena completa de 4 val el triple. L\'orca menja i se\'n va.',
-    'Cada tauró que menja es fa més fort. Quan arriba al màxim, entra en frenesí i es menja tots els veïns més petits (+2 s).',
+    `Com més llarga la cadena, més punts: ${o.multipliers.map(([len, m]) => `×${m} amb ${len}`).join(', ')}. ${capitalize(o.top)} menja i se'n va.`,
+    o.chargers.length > 1
+      ? `${capitalize(listAnd(o.chargers))} es fan més forts cada cop que mengen. Quan arriben al màxim, entren en frenesí i es mengen tots els veïns més petits (+${o.frenzyBonusS} s).`
+      : `${capitalize(listAnd(o.chargers))} es fa més fort cada cop que menja. Quan arriba al màxim, entra en frenesí i es menja tots els veïns més petits (+${o.frenzyBonusS} s).`,
     'Fes cadenes ràpides seguides per multiplicar els punts.',
     'Els animals daurats doblen els punts de la cadena on entren.',
     'El pop és un comodí: fa de l\'animal que falti a la cadena, però mai de depredador.',
@@ -52,7 +55,7 @@ export const STRINGS = {
     modeMoves: 'Moviments',
     variant: 'Regles',
     board: 'Tauler inicial (opcional)',
-    boardHelp: 'Una fila per línia o separades per /. S T R O = sardina, tonyina, tauró, orca; P = pop; * = daurat; un número = energia (R*6).',
+    boardHelp: 'Una fila per línia o separades per /. S T R O = sardina, tonyina, tauró, orca; K = plàncton (5 nivells); P = pop; * = daurat; un número = energia (R*6).',
     copyBoard: 'Posa-hi el tauler actual',
     badBoard: 'Tauler no vàlid: revisa les lletres (S T R O) i que totes les files tinguin la mateixa mida.',
     badSeed: 'La llavor ha de ser un nombre enter.',
@@ -65,3 +68,15 @@ export const STRINGS = {
 } as const;
 
 export type StringKey = keyof typeof STRINGS;
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function listOr(items: readonly (string | number)[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} o ${items[items.length - 1]}`;
+}
+
+function listAnd(items: readonly string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} i ${items[items.length - 1]}`;
+}

@@ -284,8 +284,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .arrow { width: 10px; height: 10px; opacity: 0.7; }
 .arrow svg { display: block; }
 .food-chain.large { justify-content: center; background: rgba(8, 127, 189, 0.25); border-radius: 16px; padding: 8px; opacity: 1; margin: 8px 0; }
-.food-chain.large .chain-animal { width: 56px; height: 72px; }
-.food-chain.large .chain-animal svg { height: 56px; }
+.food-chain.large .chain-animal { width: min(56px, 13vw); height: 72px; }
+.food-chain.large .chain-animal svg { height: min(56px, 13vw); }
 .chain-name { font-size: 11px; }
 
 /* Overlays */
