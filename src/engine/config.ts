@@ -27,7 +27,10 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxBoardGenerationAttempts: 1000,
   mode: 'time',
   durationMs: 120_000,
-  timeBonusMs: { chain4: 2000, frenzy: 3000 },
+  timeBonusMs: { frenzy: 2000 },
+  maxTimeBonusMs: 20_000,
+  maxTierLeaves: true,
+  fullChainFrenzy: true,
   pauseClockDuringResolution: true,
   maxMoves: 30,
 };

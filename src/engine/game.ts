@@ -5,7 +5,9 @@ import { checkChain, countChains } from './chains';
 import { DEFAULT_CONFIG } from './config';
 import { nextInt, seedToState } from './rng';
 import { chainPoints, comboMultiplier, energyFromPrey, frenzyPoints } from './score';
-import type { Animal, Board, Cell, Fall, GameConfig, GameEvent, GameState, GameStats, Move, MoveResult, Pos, Tier } from './types';
+import type {
+  Animal, Board, Cell, Fall, GameConfig, GameEvent, GameState, GameStats, Move, MoveResult, Pos, Tier, TimeBonusReason,
+} from './types';
 
 export interface CreateGameOptions {
   readonly seed: number;
@@ -35,7 +37,7 @@ export function createGame({ seed, config = DEFAULT_CONFIG, board, spawnQueue = 
   const start = board ?? generateBoard(spawner, { rows: config.boardSize, cols: config.boardSize }, config.minInitialMoves, config);
   return {
     config, seed, rngState: spawner.rngState, spawnQueue: spawner.spawnQueue, nextId: spawner.nextId, board: start,
-    score: 0, moves: 0, elapsedMs: 0, timeLimitMs: config.durationMs, lastMoveAtMs: null, combo: 0,
+    score: 0, moves: 0, elapsedMs: 0, timeLimitMs: config.durationMs, timeBonusMs: 0, lastMoveAtMs: null, combo: 0,
     chains: 0, chains4: 0, frenzies: 0, maxCombo: 0, bestMove: 0, shuffles: 0, gameOver: false, history: [],
   };
 }
@@ -68,6 +70,35 @@ export function isLegalMove(state: GameState, move: Move): boolean {
 
 /** Plays one traced chain. Throws on an illegal move (see moveError). */
 export function applyMove(state: GameState, move: Move): MoveResult {
+  return play(state, move, true);
+}
+
+export interface MovePreview {
+  readonly points: number;
+  readonly frenzies: number;
+  readonly energyGained: number;
+  readonly predatorTier: number;
+}
+
+/**
+ * What a move would score right now (chain + frenzies), skipping the shuffle check. For bots.
+ * Note: frenzy points can depend on refills, which come from the game's RNG.
+ */
+export function previewMove(state: GameState, move: Move): MovePreview {
+  const { events } = play(state, move, false);
+  let points = 0;
+  let frenzies = 0;
+  let energyGained = 0;
+  let predatorTier = 0;
+  for (const e of events) {
+    if (e.type === 'chain') { points += e.points; predatorTier = e.predator.tier; }
+    else if (e.type === 'frenzy') { points += e.points; frenzies++; }
+    else if (e.type === 'energyGain') energyGained += e.to - e.from;
+  }
+  return { points, frenzies, energyGained, predatorTier };
+}
+
+function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult {
   const error = moveError(state, move);
   if (error) throw new Error(`Illegal move (${error}): ${JSON.stringify(move)}`);
   const { config } = state;
@@ -79,10 +110,12 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   const spawner: Spawner = { rngState: state.rngState, spawnQueue: [...state.spawnQueue], nextId: state.nextId };
   const events: GameEvent[] = [];
   let timeLimitMs = state.timeLimitMs;
-  const addTime = (reason: 'chain4' | 'frenzy') => {
-    if (!timed) return;
-    const ms = config.timeBonusMs[reason];
+  let timeBonusMs = state.timeBonusMs;
+  const addTime = (reason: TimeBonusReason) => {
+    const ms = Math.min(config.timeBonusMs[reason], config.maxTimeBonusMs - timeBonusMs);
+    if (!timed || ms <= 0) return;
     timeLimitMs += ms;
+    timeBonusMs += ms;
     events.push({ type: 'timeBonus', reason, ms, timeLimitMs });
   };
 
@@ -93,33 +126,44 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   const comboMult = timed ? comboMultiplier(combo, config) : 1;
   if (combo >= 2) events.push({ type: 'combo', count: combo, multiplier: comboMult });
 
-  // 1–3. Prey disappear, the final predator stays and gains energy; score the chain.
+  // 1–3. Prey disappear and the chain is scored.
   const path = check.ascending;
   const predatorPos = path[path.length - 1];
   const predator = board[predatorPos.row][predatorPos.col]!;
   const prey = path.slice(0, -1).map((p) => ({ animal: board[p.row][p.col]!, pos: p }));
   const lengthMult = config.lengthMultiplier[path.length] ?? 1;
   const points = chainPoints(prey.map((p) => p.animal), lengthMult, comboMult, config);
-  const energy = predator.energy + prey.reduce((e, p) => e + energyFromPrey(p.animal, config), 0);
-  const fed: Animal = { ...predator, energy };
   events.push({ type: 'chain', path, predator, points, lengthMultiplier: lengthMult, comboMultiplier: comboMult });
   for (const p of prey) {
     board[p.pos.row][p.pos.col] = null;
     events.push({ type: 'eat', prey: p.animal, from: p.pos, predatorId: predator.id, to: predatorPos, frenzy: false });
   }
-  board[predatorPos.row][predatorPos.col] = fed;
-  events.push({ type: 'energyGain', animalId: predator.id, pos: predatorPos, from: predator.energy, to: energy });
-  if (path.length === 4) addTime('chain4');
+
+  // The predator: a top-tier one (maxTierLeaves) gains no energy; after a full chain it frenzies
+  // (below), otherwise it leaves now. Any other predator stays and gains energy.
+  const topTier = config.maxTierLeaves && predator.tier === config.tiers.length;
+  const forcedFrenzy = new Set<number>();
+  if (topTier && config.fullChainFrenzy && path.length === config.tiers.length) {
+    forcedFrenzy.add(predator.id);
+  } else if (topTier) {
+    board[predatorPos.row][predatorPos.col] = null;
+    events.push({ type: 'leave', animal: predator, pos: predatorPos, reason: 'sated' });
+  } else {
+    const energy = predator.energy + prey.reduce((e, p) => e + energyFromPrey(p.animal, config), 0);
+    board[predatorPos.row][predatorPos.col] = { ...predator, energy };
+    events.push({ type: 'energyGain', animalId: predator.id, pos: predatorPos, from: predator.energy, to: energy });
+  }
 
   // 4. Gravity and refill.
   events.push(...applyGravity(board, spawner, config));
 
-  // 5. Frenzy: any animal at the threshold eats every lower-tier neighbour and leaves.
-  // Only the move's predator can gain energy today, but the loop handles several (row, then column).
+  // 5. Frenzy: a predator at the threshold (or a top-tier one after a full chain) eats every
+  // lower-tier neighbour and leaves. Several are resolved in row, then column, order.
   let frenzyTotal = 0;
   let frenzies = 0;
-  for (let pos = findFrenzied(board, config); pos; pos = findFrenzied(board, config)) {
+  for (let pos = findFrenzied(board, forcedFrenzy, config); pos; pos = findFrenzied(board, forcedFrenzy, config)) {
     const hunter = board[pos.row][pos.col]!;
+    forcedFrenzy.delete(hunter.id);
     const eaten = neighbourPositions(board, pos, config.frenzyAdjacency)
       .filter((n) => board[n.row][n.col]!.tier < hunter.tier)
       .sort((a, b) => a.row - b.row || a.col - b.col)
@@ -131,7 +175,7 @@ export function applyMove(state: GameState, move: Move): MoveResult {
       events.push({ type: 'eat', prey: e.animal, from: e.pos, predatorId: hunter.id, to: pos, frenzy: true });
     }
     board[pos.row][pos.col] = null;
-    events.push({ type: 'leave', animal: hunter, pos });
+    events.push({ type: 'leave', animal: hunter, pos, reason: 'frenzy' });
     frenzyTotal += total;
     frenzies++;
     addTime('frenzy');
@@ -139,7 +183,7 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   }
 
   // 6. Shuffle if there are too few possible chains.
-  const shuffled = ensurePlayable(board, spawner, config);
+  const shuffled = checkPlayable ? ensurePlayable(board, spawner, config) : { board, events: [] };
   events.push(...shuffled.events);
 
   const movePoints = points + frenzyTotal;
@@ -155,6 +199,7 @@ export function applyMove(state: GameState, move: Move): MoveResult {
     moves,
     elapsedMs: timed ? Math.max(state.elapsedMs, atMs) : state.elapsedMs,
     timeLimitMs,
+    timeBonusMs,
     lastMoveAtMs: timed ? atMs : null,
     combo,
     chains: state.chains + 1,
@@ -170,9 +215,12 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   return { state: next, events };
 }
 
-function findFrenzied(board: Board, config: GameConfig): Pos | null {
+function findFrenzied(board: Board, forced: ReadonlySet<number>, config: GameConfig): Pos | null {
   for (let r = 0; r < rows(board); r++) {
-    for (let c = 0; c < cols(board); c++) if ((board[r][c]?.energy ?? 0) >= config.frenzyThreshold) return { row: r, col: c };
+    for (let c = 0; c < cols(board); c++) {
+      const a = board[r][c];
+      if (a && (a.energy >= config.frenzyThreshold || forced.has(a.id))) return { row: r, col: c };
+    }
   }
   return null;
 }

@@ -57,35 +57,62 @@ describe('REGLES.md v0.2 §10 scenarios', () => {
     expect(reason([[0, 0], [1, 1], [2, 2]], eight)).toMatchObject({ valid: true });
   });
 
-  it('G5: full chain and frenzy', () => {
+  it('G5: full chain, the orca frenzies and leaves (v0.3)', () => {
     const s = setup('T T T T / S T R O', { queue: 'S S S R R R R', config: { mode: 'time' } });
     const r = trace(s, [[1, 0], [1, 1], [1, 2], [1, 3]], 1000);
     const [chain] = ofType(r.events, 'chain');
     expect(chain.points).toBe(420);
-    expect(ofType(r.events, 'energyGain')[0].to).toBe(6);
+    expect(ofType(r.events, 'energyGain')).toHaveLength(0); // the orca gains no energy
     const [frenzy] = ofType(r.events, 'frenzy');
     expect(frenzy.pos).toEqual({ row: 1, col: 3 });
     expect(frenzy.prey.map((p) => [p.pos.row, p.pos.col, p.points])).toEqual([[0, 2, 20], [0, 3, 60], [1, 2, 60]]);
     expect(frenzy.points).toBe(140);
-    expect(ofType(r.events, 'leave')).toHaveLength(1);
+    expect(ofType(r.events, 'leave')).toMatchObject([{ reason: 'frenzy', pos: { row: 1, col: 3 } }]);
     expect(boardToString(r.state.board)).toBe(board('S S R R / T T R R'));
     expect(r.state.score).toBe(560);
-    expect(ofType(r.events, 'timeBonus').map((e) => [e.reason, e.ms])).toEqual([['chain4', 2000], ['frenzy', 3000]]);
-    expect(r.state.timeLimitMs).toBe(120_000 + 5000);
+    expect(ofType(r.events, 'timeBonus').map((e) => [e.reason, e.ms])).toEqual([['frenzy', 2000]]);
+    expect(r.state.timeLimitMs).toBe(120_000 + 2000);
     expect(r.state).toMatchObject({ chains4: 1, frenzies: 1, bestMove: 560 });
   });
 
-  it('G5 (intermediate board): gravity before the frenzy', () => {
-    const s = setup('T T T T / S T R O', { queue: 'S S S R R R R', config: { frenzyThreshold: 99, minValidMoves: 0 } });
+  it('G5 with fullChainFrenzy: false: the orca leaves without a frenzy', () => {
+    const s = setup('T T T T / S T R O', { queue: 'S S S S', config: { fullChainFrenzy: false, minValidMoves: 0 } });
+    const r = trace(s, [[1, 0], [1, 1], [1, 2], [1, 3]]);
+    expect(ofType(r.events, 'frenzy')).toHaveLength(0);
+    expect(ofType(r.events, 'leave')).toMatchObject([{ reason: 'sated' }]);
+    expect(r.state.score).toBe(420);
+  });
+
+  it('G5 with maxTierLeaves: false (v0.2): gravity before the frenzy, orca energy 6', () => {
+    const s = setup('T T T T / S T R O', { queue: 'S S S R R R R', config: { maxTierLeaves: false, frenzyThreshold: 99, minValidMoves: 0 } });
     const r = trace(s, [[1, 0], [1, 1], [1, 2], [1, 3]]);
     expect(boardToString(r.state.board)).toBe(board('S S S T / T T T O6'));
   });
 
-  it('G6: energy inheritance', () => {
-    const r = trace(setup('S S S / T R3 O'), [[1, 0], [1, 1], [1, 2]]);
+  it('G6: a 2-3-4 chain disappears entirely (the orca eats and leaves)', () => {
+    const r = trace(setup('S S S / T R3 O', { queue: 'S S S', config: { minValidMoves: 0 } }), [[1, 0], [1, 1], [1, 2]]);
+    expect(ofType(r.events, 'chain')[0].points).toBe(160);
+    expect(ofType(r.events, 'energyGain')).toHaveLength(0);
+    expect(ofType(r.events, 'leave')).toMatchObject([{ reason: 'sated', pos: { row: 1, col: 2 } }]);
+    expect(ofType(r.events, 'frenzy')).toHaveLength(0);
+    expect(boardToString(r.state.board)).toBe(board('S S S / S S S'));
+  });
+
+  it('G6 with maxTierLeaves: false (v0.2): energy inheritance, the orca reaches 6 and frenzies', () => {
+    const r = trace(setup('S S S / T R3 O', { config: { maxTierLeaves: false } }), [[1, 0], [1, 1], [1, 2]]);
     expect(ofType(r.events, 'chain')[0].points).toBe(160);
     expect(ofType(r.events, 'energyGain')[0]).toMatchObject({ from: 0, to: 6 });
     expect(ofType(r.events, 'frenzy')).toHaveLength(1);
+  });
+
+  it('sharks accumulate energy and frenzy at the threshold', () => {
+    const first = trace(setup('T T T / S T R', { queue: 'O O', config: { minValidMoves: 0 } }), [[1, 0], [1, 1], [1, 2]]);
+    expect(ofType(first.events, 'energyGain')[0]).toMatchObject({ from: 0, to: 3 });
+    expect(ofType(first.events, 'frenzy')).toHaveLength(0);
+    const second = trace(setup('O O O / S T R3', { config: { minValidMoves: 0 } }), [[1, 0], [1, 1], [1, 2]]);
+    expect(ofType(second.events, 'frenzy')).toHaveLength(1);
+    const high = trace(setup('O O O / S T R3', { config: { minValidMoves: 0, frenzyThreshold: 9 } }), [[1, 0], [1, 1], [1, 2]]);
+    expect(ofType(high.events, 'frenzy')).toHaveLength(0);
   });
 
   describe('G7: speed combo', () => {
@@ -133,8 +160,17 @@ describe('REGLES.md v0.2 §10 scenarios', () => {
     it('time bonuses extend the limit', () => {
       const s = setup('T T T T / S T R O', { queue: 'S S S R R R R', config: { mode: 'time' } });
       const r = trace(s, [[1, 0], [1, 1], [1, 2], [1, 3]], 1000);
-      expect(tick(r.state, 124_000 - 1000).state.gameOver).toBe(false);
-      expect(tick(r.state, 125_000 - 1000).state.gameOver).toBe(true);
+      expect(tick(r.state, 121_999 - 1000).state.gameOver).toBe(false);
+      expect(tick(r.state, 122_000 - 1000).state.gameOver).toBe(true);
+    });
+    it('time bonuses are capped by maxTimeBonusMs', () => {
+      const config = { mode: 'time' as const, maxTimeBonusMs: 3000 };
+      const a = trace(setup('T T T T / S T R O / S T R O', { queue: 'S S S R R R R S S S R R R R', config }), [[1, 0], [1, 1], [1, 2], [1, 3]], 1000);
+      const full = a.state.board.findIndex((row) => row.map((x) => x!.tier).join() === '1,2,3,4');
+      expect(full).toBeGreaterThanOrEqual(0);
+      const b = trace(a.state, [[full, 0], [full, 1], [full, 2], [full, 3]], 2000);
+      expect(ofType(b.events, 'timeBonus')).toMatchObject([{ ms: 1000 }]);
+      expect(b.state.timeLimitMs).toBe(123_000);
     });
   });
 

@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b && tsc -p tsconfig.engine.json && tsc -p tsconfig.test.json",
+    "typecheck": "tsc -b && tsc -p tsconfig.engine.json && tsc -p tsconfig.test.json && tsc -p tsconfig.sim.json",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sim": "tsx src/sim/cli.ts"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.88.0",
+    "tsx": "^4.23.15",
     "typescript": "~7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"

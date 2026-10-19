@@ -55,7 +55,13 @@ export interface GameConfig {
   readonly maxBoardGenerationAttempts: number;
   readonly mode: GameMode;
   readonly durationMs: number;
-  readonly timeBonusMs: { readonly chain4: number; readonly frenzy: number };
+  readonly timeBonusMs: { readonly frenzy: number };
+  /** Cap on the total time bonus per game. */
+  readonly maxTimeBonusMs: number;
+  /** The top-tier predator leaves after eating (2-3-4: whole chain gone; 1-2-3-4: frenzy, then leaves). */
+  readonly maxTierLeaves: boolean;
+  /** With maxTierLeaves: a full chain (1-2-3-4) makes the top-tier predator frenzy before leaving. */
+  readonly fullChainFrenzy: boolean;
   /** UI hint: stop the clock while a move's animations play. */
   readonly pauseClockDuringResolution: boolean;
   readonly maxMoves: number;
@@ -92,6 +98,8 @@ export interface GameState {
   readonly elapsedMs: number;
   /** durationMs plus time bonuses earned so far. */
   readonly timeLimitMs: number;
+  /** Total time bonus granted so far (capped by maxTimeBonusMs). */
+  readonly timeBonusMs: number;
   readonly lastMoveAtMs: number | null;
   readonly combo: number;
   readonly chains: number;
@@ -110,7 +118,10 @@ export interface Fall {
   readonly to: Pos;
 }
 
-export type TimeBonusReason = 'chain4' | 'frenzy';
+export type TimeBonusReason = 'frenzy';
+
+/** 'frenzy': after a frenzy. 'sated': a top-tier predator leaves after eating (maxTierLeaves). */
+export type LeaveReason = 'frenzy' | 'sated';
 
 export type GameEvent =
   | {
@@ -127,8 +138,8 @@ export type GameEvent =
   | { readonly type: 'fall'; readonly falls: readonly Fall[] }
   | { readonly type: 'spawn'; readonly animal: Animal; readonly pos: Pos }
   | { readonly type: 'frenzy'; readonly predator: Animal; readonly pos: Pos; readonly prey: readonly { readonly animal: Animal; readonly pos: Pos; readonly points: number }[]; readonly points: number }
-  /** The frenzied predator leaves the board (its cell empties). */
-  | { readonly type: 'leave'; readonly animal: Animal; readonly pos: Pos }
+  /** A predator leaves the board (its cell empties). */
+  | { readonly type: 'leave'; readonly animal: Animal; readonly pos: Pos; readonly reason: LeaveReason }
   | { readonly type: 'shuffle'; readonly moves: readonly Fall[]; readonly attempts: number }
   /** Shuffling failed maxShuffleAttempts times: the whole board was replaced. */
   | { readonly type: 'regenerate'; readonly removed: readonly Animal[]; readonly board: Board }
