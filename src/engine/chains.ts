@@ -1,12 +1,32 @@
-// Chain validation and enumeration (REGLES.md v0.2 §2, §7).
+// Chain validation and enumeration (REGLES.md v0.5 §2, §7, §9).
+// A wildcard (octopus) takes whatever tier the chain needs at its place, but never the predator's.
 import { areNeighbours, cols, inBounds, neighbourPositions, rows, samePos } from './board';
-import type { Board, GameConfig, Pos } from './types';
+import type { Animal, Board, GameConfig, Pos, Tier } from './types';
 
 export type ChainCheck =
-  | { readonly valid: true; /** Prey first, predator last. */ readonly ascending: readonly Pos[] }
+  | {
+      readonly valid: true;
+      /** Prey first, predator last. */
+      readonly ascending: readonly Pos[];
+      /** Tier each cell of `ascending` plays (wildcards included). */
+      readonly tiers: readonly Tier[];
+    }
   | { readonly valid: false; readonly reason: ChainError };
 
 export type ChainError = 'length' | 'bounds' | 'empty' | 'repeat' | 'notAdjacent' | 'tiers';
+
+/**
+ * Tiers the animals play when read as consecutive tiers going `dir` (+1 up, −1 down), or null.
+ * Wildcards fill in; at least one real animal anchors the sequence.
+ */
+function fitTiers(animals: readonly Animal[], dir: 1 | -1, maxTier: number): Tier[] | null {
+  const anchor = animals.findIndex((a) => !a.wild);
+  if (anchor < 0) return null;
+  const start = animals[anchor].tier - dir * anchor;
+  const tiers = animals.map((_, i) => start + dir * i);
+  if (tiers.some((t) => t < 1 || t > maxTier)) return null;
+  return animals.every((a, i) => a.wild || a.tier === tiers[i]) ? tiers : null;
+}
 
 export function checkChain(board: Board, path: readonly Pos[], config: GameConfig): ChainCheck {
   if (!config.chainLengths.includes(path.length)) return { valid: false, reason: 'length' };
@@ -16,10 +36,12 @@ export function checkChain(board: Board, path: readonly Pos[], config: GameConfi
   for (let i = 1; i < path.length; i++) {
     if (!areNeighbours(path[i - 1], path[i], config.adjacency)) return { valid: false, reason: 'notAdjacent' };
   }
-  const tiers = path.map((p) => board[p.row][p.col]!.tier);
-  const steps = tiers.slice(1).map((t, i) => t - tiers[i]);
-  if (steps.every((s) => s === 1)) return { valid: true, ascending: path };
-  if (config.allowDescendingTrace && steps.every((s) => s === -1)) return { valid: true, ascending: [...path].reverse() };
+  const animals = path.map((p) => board[p.row][p.col]!);
+  const maxTier = config.tiers.length;
+  const up = fitTiers(animals, 1, maxTier);
+  if (up && !animals[animals.length - 1].wild) return { valid: true, ascending: path, tiers: up };
+  const down = config.allowDescendingTrace ? fitTiers(animals, -1, maxTier) : null;
+  if (down && !animals[0].wild) return { valid: true, ascending: [...path].reverse(), tiers: [...down].reverse() };
   return { valid: false, reason: 'tiers' };
 }
 
@@ -29,22 +51,33 @@ export function isValidChain(board: Board, path: readonly Pos[], config: GameCon
 
 /**
  * Every possible chain, once per set of cells (a chain and its reverse count as one), in ascending
- * order. Tiers in a chain are all different, so a set of cells has exactly one ascending path.
+ * order. Without wildcards a set of cells has exactly one ascending path; with them, the first found is kept.
  */
 export function legalChains(board: Board, config: GameConfig): Pos[][] {
   const maxLength = Math.max(...config.chainLengths);
+  const maxTier = config.tiers.length;
   const result: Pos[][] = [];
-  const extend = (path: Pos[]) => {
-    if (config.chainLengths.includes(path.length)) result.push(path);
-    if (path.length >= maxLength) return;
+  const seen = new Set<string>();
+  const extend = (path: Pos[], tier: Tier) => {
     const last = path[path.length - 1];
-    const tier = board[last.row][last.col]!.tier;
+    if (config.chainLengths.includes(path.length) && !board[last.row][last.col]!.wild) {
+      const key = path.map((p) => p.row * 1000 + p.col).sort((a, b) => a - b).join(',');
+      if (!seen.has(key)) { seen.add(key); result.push(path); }
+    }
+    if (path.length >= maxLength || tier >= maxTier) return;
     for (const n of neighbourPositions(board, last, config.adjacency)) {
-      if (board[n.row][n.col]?.tier === tier + 1) extend([...path, n]);
+      const a = board[n.row][n.col];
+      if (!a || path.some((p) => samePos(p, n))) continue;
+      if (a.wild || a.tier === tier + 1) extend([...path, n], tier + 1);
     }
   };
   for (let r = 0; r < rows(board); r++) {
-    for (let c = 0; c < cols(board); c++) if (board[r][c]) extend([{ row: r, col: c }]);
+    for (let c = 0; c < cols(board); c++) {
+      const a = board[r][c];
+      if (!a) continue;
+      if (!a.wild) extend([{ row: r, col: c }], a.tier);
+      else for (let t = 1; t < maxTier; t++) extend([{ row: r, col: c }], t);
+    }
   }
   return result;
 }
@@ -67,14 +100,16 @@ export function traceStatus(board: Board, path: readonly Pos[], config: GameConf
   if (path.some((p) => !inBounds(board, p) || !board[p.row][p.col])) return 'invalid';
   if (path.some((p, i) => path.findIndex((q) => samePos(p, q)) !== i)) return 'invalid';
   for (let i = 1; i < path.length; i++) if (!areNeighbours(path[i - 1], path[i], config.adjacency)) return 'invalid';
-  const tiers = path.map((p) => board[p.row][p.col]!.tier);
-  const steps = tiers.slice(1).map((t, i) => t - tiers[i]);
-  const up = steps.every((s) => s === 1);
-  const down = config.allowDescendingTrace && steps.every((s) => s === -1);
-  if (!up && !down) return 'invalid';
-  // Can it still reach a valid length within the tier range?
-  const maxTier = config.tiers.length;
-  const room = up && down ? maxTier - 1 : up ? maxTier - tiers[tiers.length - 1] : tiers[tiers.length - 1] - 1;
   const needed = Math.min(...config.chainLengths.filter((l) => l > path.length)) - path.length;
-  return Number.isFinite(needed) && room >= needed ? 'partial' : 'invalid';
+  if (!Number.isFinite(needed)) return 'invalid';
+  const animals = path.map((p) => board[p.row][p.col]!);
+  const maxTier = config.tiers.length;
+  // Only wildcards so far: anything is still possible.
+  if (animals.every((a) => a.wild)) return path.length + needed <= maxTier ? 'partial' : 'invalid';
+  // Going up, the chain grows past its last cell; going down, the predator must already be first and real.
+  const up = fitTiers(animals, 1, maxTier);
+  if (up && maxTier - up[up.length - 1] >= needed) return 'partial';
+  const down = config.allowDescendingTrace && !animals[0].wild ? fitTiers(animals, -1, maxTier) : null;
+  if (down && down[down.length - 1] - 1 >= needed) return 'partial';
+  return 'invalid';
 }

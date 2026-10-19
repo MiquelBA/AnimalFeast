@@ -65,3 +65,25 @@ export function Orca({ color }: SpriteProps) {
     </svg>
   );
 }
+
+export function Octopus({ color }: SpriteProps) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+      {[22, 36, 50, 64, 78].map((x, i) => (
+        <path
+          key={x}
+          d={`M${x} 58 Q${x + (i % 2 ? 6 : -6)} 74 ${x + (i % 2 ? -2 : 2)} 88`}
+          fill="none"
+          stroke={color}
+          strokeWidth="9"
+          strokeLinecap="round"
+        />
+      ))}
+      <path d="M18 56 Q16 14 50 12 Q84 14 82 56 Q50 66 18 56 Z" fill={color} {...STROKE} />
+      <circle cx="30" cy="34" r="3" fill="#FFFFFF" opacity="0.6" />
+      <Eye x={39} y={40} r={10} />
+      <Eye x={61} y={40} r={10} />
+      <path d="M44 54 Q50 58 56 54" fill="none" stroke={OUTLINE} strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}

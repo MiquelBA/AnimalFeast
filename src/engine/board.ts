@@ -1,6 +1,6 @@
 // Board geometry, spawning, gravity and refill (REGLES.md v0.2 §1, §5).
 import { nextRandom, pickTier } from './rng';
-import type { Adjacency, Animal, Board, Cell, Fall, GameConfig, GameEvent, Pos, Tier } from './types';
+import type { Adjacency, Animal, Board, Cell, Fall, GameConfig, GameEvent, Pos, SpawnSpec } from './types';
 
 const ORTHOGONAL: readonly (readonly [number, number])[] = [[-1, 0], [0, 1], [1, 0], [0, -1]];
 const DIAGONAL: readonly (readonly [number, number])[] = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
@@ -60,18 +60,31 @@ export function findAnimal(board: Board, id: number): Pos | null {
 /** Mutable source of new animals during one engine call: fixed queue first, then the RNG. */
 export interface Spawner {
   rngState: number;
-  spawnQueue: Tier[];
+  spawnQueue: SpawnSpec[];
   nextId: number;
 }
 
-export function spawnAnimal(spawner: Spawner, config: GameConfig): Animal {
-  let tier = spawner.spawnQueue.shift();
-  if (tier === undefined) {
+/** Next spawn from the RNG: tier first, then (only when enabled) wildcard and golden rolls. */
+function randomSpec(spawner: Spawner, config: GameConfig): SpawnSpec {
+  const roll = () => {
     const [r, next] = nextRandom(spawner.rngState);
     spawner.rngState = next;
-    tier = pickTier(config, r);
-  }
-  return { id: spawner.nextId++, tier, energy: config.spawnEnergy };
+    return r;
+  };
+  const tier = pickTier(config, roll());
+  if (config.wildChance > 0 && roll() < config.wildChance) return { tier: 0, wild: true };
+  return { tier, golden: config.goldenChance > 0 && roll() < config.goldenChance };
+}
+
+export function spawnAnimal(spawner: Spawner, config: GameConfig): Animal {
+  const spec = spawner.spawnQueue.shift() ?? randomSpec(spawner, config);
+  return makeAnimal(spawner.nextId++, spec, config.spawnEnergy);
+}
+
+/** An animal from a spec; flags appear only when set, so plain animals stay plain. */
+export function makeAnimal(id: number, spec: SpawnSpec, energy: number): Animal {
+  if (spec.wild) return { id, tier: 0, energy: 0, wild: true };
+  return spec.golden ? { id, tier: spec.tier, energy, golden: true } : { id, tier: spec.tier, energy };
 }
 
 /**

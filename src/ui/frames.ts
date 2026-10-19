@@ -19,7 +19,7 @@ export interface Ghost {
 
 export type Effect =
   | { readonly type: 'points'; readonly pos: Pos; readonly points: number }
-  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'shuffle'; readonly value: number; readonly pos?: Pos }
+  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'golden' | 'shuffle'; readonly value: number; readonly pos?: Pos }
   | { readonly type: 'pop'; readonly id: number }
   | { readonly type: 'flash'; readonly pos: Pos };
 
@@ -75,6 +75,7 @@ export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[
         const predatorPos = e.path[e.path.length - 1];
         effect({ type: 'points', pos: predatorPos, points: e.points });
         if (e.lengthMultiplier > 1) effect({ type: 'text', text: 'multiplier', value: e.lengthMultiplier, pos: predatorPos });
+        if (e.goldenMultiplier > 1) effect({ type: 'text', text: 'golden', value: e.goldenMultiplier });
         break;
       }
       case 'eat':

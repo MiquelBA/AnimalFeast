@@ -1,7 +1,8 @@
 // Bots for the simulator. Each picks one of the legal chains for the current state.
 import { nextInt } from '../engine/rng';
 import { previewMove } from '../engine/game';
-import { preyValue } from '../engine/score';
+import { checkChain } from '../engine/chains';
+import { chainPoints, energyFromPrey, goldenMultiplier } from '../engine/score';
 import type { GameState, Pos } from '../engine/types';
 
 export type BotName = 'random' | 'greedy' | 'greedy+frenzy';
@@ -22,21 +23,25 @@ export const DEFAULT_BOT_OPTIONS: BotOptions = { energyWeight: 1 };
 /** Immediate points of a chain. Only chains that can trigger a frenzy need a full preview. */
 function evaluate(state: GameState, path: readonly Pos[]): { points: number; energyGained: number; tier: number } {
   const { config, board } = state;
-  const tiers = path.map((p) => board[p.row][p.col]!.tier);
-  const top = path[tiers.indexOf(Math.max(...tiers))];
+  const check = checkChain(board, path, config);
+  if (!check.valid) throw new Error('Bots only evaluate legal chains');
+  const top = check.ascending[check.ascending.length - 1];
   const predator = board[top.row][top.col]!;
-  const prey = path.filter((p) => p !== top).map((p) => board[p.row][p.col]!);
+  const prey = check.ascending.slice(0, -1).map((p, i) => ({ animal: board[p.row][p.col]!, tier: check.tiers[i] }));
   const maxTier = config.tiers.length;
   const leaves = config.maxTierLeaves && predator.tier === maxTier;
-  const energyGained = leaves ? 0 : prey.reduce((e, a) => e + config.tiers[a.tier - 1].energyValue + Math.floor(a.energy * config.inheritRatio), 0);
+  const energyGained = leaves ? 0 : prey.reduce((e, p) => e + energyFromPrey(p.animal, config, p.tier), 0);
   const mayFrenzy = (leaves && config.fullChainFrenzy && path.length === maxTier) || (!leaves && predator.energy + energyGained >= config.frenzyThreshold);
   if (mayFrenzy) {
     const p = previewMove(state, { path, atMs: state.lastMoveAtMs ?? 0 });
     return { points: p.points, energyGained: p.energyGained, tier: predator.tier };
   }
-  const lengthMult = config.lengthMultiplier[path.length] ?? 1;
-  const points = Math.round(prey.reduce((s, a) => s + preyValue(a, config), 0) * lengthMult);
-  return { points, energyGained, tier: predator.tier };
+  const multipliers = {
+    length: config.lengthMultiplier[path.length] ?? 1,
+    combo: 1,
+    golden: goldenMultiplier([...prey.map((p) => p.animal), predator], config),
+  };
+  return { points: chainPoints(prey, multipliers, config), energyGained, tier: predator.tier };
 }
 
 function argmaxRandomTie(values: readonly number[], ctx: BotContext): number {

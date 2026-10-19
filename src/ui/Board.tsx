@@ -5,7 +5,7 @@ import { samePos } from '../engine/board';
 import { traceStatus, type TraceStatus } from '../engine/chains';
 import { isNearFrenzy, minEnergyGain } from '../engine/score';
 import type { Animal, Board as BoardData, GameConfig, Pos } from '../engine/types';
-import { themeLevel, type Theme } from '../themes';
+import { animalLook, type Theme } from '../themes';
 import type { Ghost } from './frames';
 import { STRINGS } from './strings';
 import { cellCentre, cellsAlong, extendPath, hitCell, type Point } from './trace';
@@ -235,7 +235,7 @@ interface TileProps {
 }
 
 const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted, register }: TileProps) {
-  const level = themeLevel(theme, animal.tier);
+  const level = animalLook(theme, animal);
   const canCharge = minEnergyGain(animal.tier, config) > 0;
   const ratio = canCharge ? Math.min(1, animal.energy / config.frenzyThreshold) : 0;
   const pips = Math.min(UI.energyPips, Math.floor(ratio * UI.energyPips));
@@ -244,13 +244,15 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
     if (el) register.current.set(animal.id, el);
     else register.current.delete(animal.id);
   };
-  const classes = ['tile', mark && `mark-${mark}`, hinted && 'hint', near && 'near'].filter(Boolean).join(' ');
+  const classes = ['tile', mark && `mark-${mark}`, hinted && 'hint', near && 'near', animal.golden && 'golden', animal.wild && 'wild']
+    .filter(Boolean).join(' ');
   return (
     <div ref={ref} className={classes} style={{ width: cell, height: cell, transform: px(pos, cell) }} data-tier={animal.tier}>
       <div className="tile-inner">
         <div className="tile-art" style={{ transform: `scale(${1 + UI.energyScale * ratio})`, filter: ratio ? `brightness(${1 + 0.3 * ratio}) saturate(${1 + 0.4 * ratio})` : undefined }}>
           {renderSprite(level.sprite, { color: level.color })}
         </div>
+        {animal.golden && <span className="golden-badge" aria-hidden="true">★</span>}
         {canCharge && (
           <div className="pips" aria-hidden="true">
             {Array.from({ length: UI.energyPips }, (_, i) => <span key={i} className={i < pips ? 'on' : ''} />)}
@@ -263,7 +265,7 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
 
 function GhostTile({ ghost, index, cell, theme, duration }: { ghost: Ghost; index: number; cell: number; theme: Theme; duration: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const level = themeLevel(theme, ghost.animal.tier);
+  const level = animalLook(theme, ghost.animal);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -295,6 +297,7 @@ function floaterText(f: Floater): { text: string; className: string } | null {
     }
     case 'timeBonus': return { text: STRINGS.timeBonus(e.value / 1000), className: 'float-banner float-time' };
     case 'multiplier': return { text: STRINGS.times(e.value), className: 'float-points float-mult' };
+    case 'golden': return { text: STRINGS.golden(e.value), className: 'float-banner float-golden' };
     case 'shuffle': return { text: STRINGS.shuffle, className: 'float-banner float-shuffle' };
   }
 }

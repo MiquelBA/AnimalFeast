@@ -12,10 +12,21 @@ export interface Pos {
   readonly col: number;
 }
 
+/** What the next spawn will be (spawn queues in tests and notation). */
+export interface SpawnSpec {
+  readonly tier: Tier;
+  readonly golden?: boolean;
+  readonly wild?: boolean;
+}
+
 export interface Animal {
   readonly id: number;
   readonly tier: Tier;
   readonly energy: number;
+  /** Golden animal: a chain that includes it scores × goldenMultiplier (REGLES.md v0.5 §9). */
+  readonly golden?: boolean;
+  /** Wildcard (octopus): stands in for any tier in a chain, never as the predator. Its tier is 0. */
+  readonly wild?: boolean;
 }
 
 export type Cell = Animal | null;
@@ -65,6 +76,12 @@ export interface GameConfig {
   /** UI hint: stop the clock while a move's animations play. */
   readonly pauseClockDuringResolution: boolean;
   readonly maxMoves: number;
+  /** Chance that a spawned animal is golden (0 = off). */
+  readonly goldenChance: number;
+  /** Chain points multiplier per golden animal in the chain (they stack). */
+  readonly goldenMultiplier: number;
+  /** Chance that a spawned animal is a wildcard octopus (0 = off). */
+  readonly wildChance: number;
 }
 
 /** A traced chain: cells in the order the finger visited them; atMs is game time (time mode). */
@@ -81,6 +98,9 @@ export interface GameStats {
   readonly maxCombo: number;
   readonly bestMove: number;
   readonly shuffles: number;
+  /** Chains that included a golden animal / a wildcard. */
+  readonly goldenChains: number;
+  readonly wildChains: number;
   readonly moves: number;
 }
 
@@ -89,7 +109,7 @@ export interface GameState {
   readonly seed: number;
   readonly rngState: number;
   /** Fixed spawn queue (tests); when empty, spawns come from the RNG. */
-  readonly spawnQueue: readonly Tier[];
+  readonly spawnQueue: readonly SpawnSpec[];
   readonly nextId: number;
   readonly board: Board;
   readonly score: number;
@@ -108,6 +128,8 @@ export interface GameState {
   readonly maxCombo: number;
   readonly bestMove: number;
   readonly shuffles: number;
+  readonly goldenChains: number;
+  readonly wildChains: number;
   readonly gameOver: boolean;
   readonly history: readonly Move[];
 }
@@ -132,6 +154,8 @@ export type GameEvent =
       readonly points: number;
       readonly lengthMultiplier: number;
       readonly comboMultiplier: number;
+      /** goldenMultiplier ^ golden animals in the chain (1 if none). */
+      readonly goldenMultiplier: number;
     }
   | { readonly type: 'eat'; readonly prey: Animal; readonly from: Pos; readonly predatorId: number; readonly to: Pos; readonly frenzy: boolean }
   | { readonly type: 'energyGain'; readonly animalId: number; readonly pos: Pos; readonly from: number; readonly to: number }

@@ -1,4 +1,4 @@
-// All gameplay values live here (see REGLES.md v0.2). No magic numbers elsewhere.
+// All gameplay values live here (see REGLES.md v0.5). No magic numbers elsewhere.
 import type { GameConfig } from './types';
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -33,6 +33,9 @@ export const DEFAULT_CONFIG: GameConfig = {
   fullChainFrenzy: false,
   pauseClockDuringResolution: true,
   maxMoves: 30,
+  goldenChance: 0.03,
+  goldenMultiplier: 2,
+  wildChance: 0.02,
 };
 
 export type ConfigOverrides = Partial<GameConfig>;

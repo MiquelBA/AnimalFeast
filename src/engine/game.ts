@@ -4,9 +4,9 @@ import { applyGravity, cloneBoard, cols, neighbourPositions, rows, spawnAnimal, 
 import { checkChain, countChains } from './chains';
 import { DEFAULT_CONFIG } from './config';
 import { nextInt, seedToState } from './rng';
-import { chainPoints, comboMultiplier, energyFromPrey, frenzyPoints } from './score';
+import { chainPoints, comboMultiplier, energyFromPrey, frenzyPoints, goldenMultiplier } from './score';
 import type {
-  Animal, Board, Cell, Fall, GameConfig, GameEvent, GameState, GameStats, Move, MoveResult, Pos, Tier, TimeBonusReason,
+  Animal, Board, Cell, Fall, GameConfig, GameEvent, GameState, GameStats, Move, MoveResult, Pos, SpawnSpec, TimeBonusReason,
 } from './types';
 
 export interface CreateGameOptions {
@@ -15,7 +15,7 @@ export interface CreateGameOptions {
   /** Starting board (tests, debug). Defaults to a generated board with ≥ minInitialMoves chains. */
   readonly board?: Board;
   /** Fixed spawn queue used before the RNG (tests). */
-  readonly spawnQueue?: readonly Tier[];
+  readonly spawnQueue?: readonly SpawnSpec[];
 }
 
 /** Fills a rows × cols board from the spawner, retrying until it has at least `minChains` chains. */
@@ -38,7 +38,8 @@ export function createGame({ seed, config = DEFAULT_CONFIG, board, spawnQueue = 
   return {
     config, seed, rngState: spawner.rngState, spawnQueue: spawner.spawnQueue, nextId: spawner.nextId, board: start,
     score: 0, moves: 0, elapsedMs: 0, timeLimitMs: config.durationMs, timeBonusMs: 0, lastMoveAtMs: null, combo: 0,
-    chains: 0, chains4: 0, frenzies: 0, maxCombo: 0, bestMove: 0, shuffles: 0, gameOver: false, history: [],
+    chains: 0, chains4: 0, frenzies: 0, maxCombo: 0, bestMove: 0, shuffles: 0, goldenChains: 0, wildChains: 0,
+    gameOver: false, history: [],
   };
 }
 
@@ -47,8 +48,8 @@ export function remainingMs(state: GameState): number {
 }
 
 export function gameStats(state: GameState): GameStats {
-  const { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, moves } = state;
-  return { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, moves };
+  const { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, moves } = state;
+  return { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, moves };
 }
 
 export type MoveError = 'gameOver' | 'missingTime' | 'timeTravel' | 'timeUp' | 'invalidChain';
@@ -130,10 +131,12 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
   const path = check.ascending;
   const predatorPos = path[path.length - 1];
   const predator = board[predatorPos.row][predatorPos.col]!;
-  const prey = path.slice(0, -1).map((p) => ({ animal: board[p.row][p.col]!, pos: p }));
+  const prey = path.slice(0, -1).map((p, i) => ({ animal: board[p.row][p.col]!, pos: p, tier: check.tiers[i] }));
   const lengthMult = config.lengthMultiplier[path.length] ?? 1;
-  const points = chainPoints(prey.map((p) => p.animal), lengthMult, comboMult, config);
-  events.push({ type: 'chain', path, predator, points, lengthMultiplier: lengthMult, comboMultiplier: comboMult });
+  const chainAnimals = [...prey.map((p) => p.animal), predator];
+  const goldenMult = goldenMultiplier(chainAnimals, config);
+  const points = chainPoints(prey, { length: lengthMult, combo: comboMult, golden: goldenMult }, config);
+  events.push({ type: 'chain', path, predator, points, lengthMultiplier: lengthMult, comboMultiplier: comboMult, goldenMultiplier: goldenMult });
   for (const p of prey) {
     board[p.pos.row][p.pos.col] = null;
     events.push({ type: 'eat', prey: p.animal, from: p.pos, predatorId: predator.id, to: predatorPos, frenzy: false });
@@ -149,7 +152,7 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
     board[predatorPos.row][predatorPos.col] = null;
     events.push({ type: 'leave', animal: predator, pos: predatorPos, reason: 'sated' });
   } else {
-    const energy = predator.energy + prey.reduce((e, p) => e + energyFromPrey(p.animal, config), 0);
+    const energy = predator.energy + prey.reduce((e, p) => e + energyFromPrey(p.animal, config, p.tier), 0);
     board[predatorPos.row][predatorPos.col] = { ...predator, energy };
     events.push({ type: 'energyGain', animalId: predator.id, pos: predatorPos, from: predator.energy, to: energy });
   }
@@ -165,7 +168,8 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
     const hunter = board[pos.row][pos.col]!;
     forcedFrenzy.delete(hunter.id);
     const eaten = neighbourPositions(board, pos, config.frenzyAdjacency)
-      .filter((n) => board[n.row][n.col]!.tier < hunter.tier)
+      // Wildcards are not prey for a frenzy (they have no tier of their own).
+      .filter((n) => !board[n.row][n.col]!.wild && board[n.row][n.col]!.tier < hunter.tier)
       .sort((a, b) => a.row - b.row || a.col - b.col)
       .map((n) => ({ animal: board[n.row][n.col]!, pos: n, points: frenzyPoints(board[n.row][n.col]!, config) }));
     const total = eaten.reduce((s, e) => s + e.points, 0);
@@ -208,6 +212,8 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
     maxCombo: Math.max(state.maxCombo, combo),
     bestMove: Math.max(state.bestMove, movePoints),
     shuffles: state.shuffles + (shuffled.events.length ? 1 : 0),
+    goldenChains: state.goldenChains + (goldenMult > 1 ? 1 : 0),
+    wildChains: state.wildChains + (chainAnimals.some((a) => a.wild) ? 1 : 0),
     gameOver: config.mode === 'moves' && moves >= config.maxMoves,
     history: [...state.history, move],
   };

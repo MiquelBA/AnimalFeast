@@ -1,12 +1,23 @@
 // Text notation for boards, shared by tests and the debug panel.
 // Rows top to bottom, separated by "/" or newlines; cells by spaces: "O O O / S S S / S T R3".
-// Letters are tiers: S = 1, T = 2, R = 3, O = 4 (Ocean names); an optional number is the energy.
-// Boards may be rectangular.
-import type { Animal, Board, Cell, Tier } from './types';
+// Letters are tiers: S = 1, T = 2, R = 3, O = 4 (Ocean names); "*" after the letter marks a golden
+// animal and an optional number is the energy ("R*6"). P is the wildcard octopus. Boards may be rectangular.
+import { makeAnimal } from './board';
+import type { Animal, Board, Cell, SpawnSpec } from './types';
 
 export const TIER_LETTERS: readonly string[] = ['S', 'T', 'R', 'O'];
+export const WILD_LETTER = 'P';
 
-const TOKEN = /^([A-Z])(\d*)$/;
+const TOKEN = /^([A-Z])(\*?)(\d*)$/;
+
+function parseSpec(token: string): { spec: SpawnSpec; energy: number } | null {
+  const m = TOKEN.exec(token);
+  if (!m) return null;
+  if (m[1] === WILD_LETTER) return m[2] || m[3] ? null : { spec: { tier: 0, wild: true }, energy: 0 };
+  const index = TIER_LETTERS.indexOf(m[1]);
+  if (index < 0) return null;
+  return { spec: { tier: index + 1, golden: m[2] === '*' }, energy: m[3] ? Number(m[3]) : 0 };
+}
 
 export function parseBoard(text: string, firstId = 1): Board {
   const lines = text.split(/[/\n]/).map((l) => l.trim()).filter(Boolean);
@@ -16,24 +27,25 @@ export function parseBoard(text: string, firstId = 1): Board {
   return grid.map((row, r) =>
     row.map((token, c): Cell => {
       if (token === '.') return null;
-      const m = TOKEN.exec(token);
-      const index = m ? TIER_LETTERS.indexOf(m[1]) : -1;
-      if (!m || index < 0) throw new Error(`Bad cell token "${token}" at (${r},${c})`);
-      return { id: id++, tier: index + 1, energy: m[2] ? Number(m[2]) : 0 };
+      const parsed = parseSpec(token);
+      if (!parsed) throw new Error(`Bad cell token "${token}" at (${r},${c})`);
+      return makeAnimal(id++, parsed.spec, parsed.energy);
     }),
   );
 }
 
-export function parseTiers(text: string): Tier[] {
+/** A spawn queue: "S T R*" (golden shark), "P" (octopus). */
+export function parseTiers(text: string): SpawnSpec[] {
   return text.split(/[\s,]+/).filter(Boolean).map((l) => {
-    const index = TIER_LETTERS.indexOf(l);
-    if (index < 0) throw new Error(`Bad tier letter "${l}"`);
-    return index + 1;
+    const parsed = parseSpec(l);
+    if (!parsed || parsed.energy) throw new Error(`Bad spawn token "${l}"`);
+    return parsed.spec;
   });
 }
 
 export function animalToken(a: Animal): string {
-  return (TIER_LETTERS[a.tier - 1] ?? String(a.tier)) + (a.energy ? String(a.energy) : '');
+  if (a.wild) return WILD_LETTER;
+  return (TIER_LETTERS[a.tier - 1] ?? String(a.tier)) + (a.golden ? '*' : '') + (a.energy ? String(a.energy) : '');
 }
 
 export function boardToString(board: Board): string {
