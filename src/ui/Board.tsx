@@ -1,5 +1,5 @@
 // The board: tiles, tracing with the finger, and event-driven animations (FLIP with the Web Animations API).
-import { memo, useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import { samePos } from '../engine/board';
 import { traceStatus, type TraceStatus } from '../engine/chains';
@@ -22,11 +22,15 @@ interface BoardProps {
   readonly enabled: boolean;
   readonly onPlay: (path: readonly Pos[]) => boolean;
   readonly onActivity: () => void;
+  /** A cell was added to the trace (for sound and vibration). */
+  readonly onTraceStep?: (length: number, status: TraceStatus) => void;
+  /** A traced chain was released but can't be played. */
+  readonly onReject?: () => void;
 }
 
 const px = (p: Pos, cell: number) => `translate3d(${p.col * cell}px, ${p.row * cell}px, 0)`;
 
-export function Board({ board, display, config, theme, hint, floaters, enabled, onPlay, onActivity }: BoardProps) {
+export function Board({ board, display, config, theme, hint, floaters, enabled, onPlay, onActivity, onTraceStep, onReject }: BoardProps) {
   const rows = board.length;
   const cols = board[0]?.length ?? 0;
   const areaRef = useRef<HTMLDivElement>(null);
@@ -38,6 +42,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
   const pointerId = useRef<number | null>(null);
   const lastPoint = useRef<Point | null>(null);
   const tailRef = useRef<SVGLineElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const maxLength = Math.max(...config.chainLengths);
 
   // Cell size follows the board's rendered width.
@@ -77,12 +82,23 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
       );
     }
     prevPos.current = new Map(display.tiles.map((t) => [t.animal.id, t.pos]));
+    // Big moments shake the board a little.
+    const amplitude = display.kind === 'frenzy' ? UI.shake.frenzy : longChain(display) ? UI.shake.longChain : 0;
+    if (amplitude && boardRef.current) {
+      const a = amplitude * cell;
+      boardRef.current.animate(
+        [[0, 0], [-a, a / 2], [a, -a / 2], [-a / 2, a / 3], [a / 3, 0], [0, 0]].map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` })),
+        { duration: UI.anim.shake, easing: 'ease-out' },
+      );
+    }
   }, [display, cell]);
 
   const setTrace = (next: readonly Pos[]) => {
     if (next === pathRef.current) return;
+    const grew = next.length > pathRef.current.length;
     pathRef.current = next;
     setPath(next);
+    if (grew) onTraceStep?.(next.length, traceStatus(board, next, config));
   };
 
   const moveTail = (to: Point | null) => {
@@ -161,7 +177,10 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
     cancel();
     if (!traced.length || !enabled) return;
     const played = traceStatus(board, traced, config) === 'valid' && onPlay(traced);
-    if (!played && traced.length > 1) shake(traced);
+    if (!played && traced.length > 1) {
+      shake(traced);
+      onReject?.();
+    }
   };
 
   // A trace interrupted by a pause or the end of the game is simply not shown.
@@ -173,7 +192,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
   const centres = shownPath.map((p) => cellCentre(p, cell));
 
   return (
-    <div className="board">
+    <div className="board" ref={boardRef}>
       <div
         ref={areaRef}
         className="board-area"
@@ -219,6 +238,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         </svg>
       </div>
       <FloaterLayer floaters={floaters} cell={cell} />
+      {cell > 0 && <Particles display={display} cell={cell} />}
     </div>
   );
 }
@@ -280,6 +300,81 @@ function GhostTile({ ghost, index, cell, theme, tierCount, duration }: { ghost: 
   return (
     <div ref={ref} className="tile ghost" style={{ width: cell, height: cell, transform: px(ghost.from, cell) }}>
       <div className="tile-inner"><div className="tile-art">{renderSprite(level.sprite, { color: level.color })}</div></div>
+    </div>
+  );
+}
+
+/** A chain of 4 or more (the eat frame swallows 3+ prey). */
+function longChain(display: Display): boolean {
+  return display.kind === 'eat' && display.ghosts.filter((g) => g.kind === 'swallow').length >= 3;
+}
+
+const PARTICLE_COLORS = ['var(--gold)', 'var(--foam)', 'var(--white)', 'var(--green)'];
+
+/** A burst of small dots where a chain ends or a frenzy explodes. */
+interface Burst {
+  readonly id: number;
+  readonly pos: Pos;
+  readonly count: number;
+  readonly reach: number;
+  readonly duration: number;
+}
+
+/** The particle burst a frame starts, if any. */
+function burstOf(display: Display): Burst | null {
+  let pos: Pos | undefined;
+  if (display.kind === 'eat') {
+    const pts = display.effects.find((e) => e.type === 'points');
+    pos = pts?.type === 'points' ? pts.pos : undefined;
+    const count = longChain(display) ? UI.particles.longChain : UI.particles.chain;
+    return pos ? { id: display.frameId, pos, count, reach: UI.particles.reach, duration: UI.anim.eat + 180 } : null;
+  }
+  if (display.kind === 'frenzy') {
+    const flash = display.effects.find((e) => e.type === 'flash');
+    pos = flash?.type === 'flash' ? flash.pos : undefined;
+    return pos ? { id: display.frameId, pos, count: UI.particles.frenzy, reach: UI.particles.frenzyReach, duration: UI.anim.frenzy } : null;
+  }
+  return null;
+}
+
+/** Particle bursts outlive their frame: the fall that follows an eat doesn't cut them short. */
+function Particles({ display, cell }: { display: Display; cell: number }) {
+  const [bursts, setBursts] = useState<readonly Burst[]>([]);
+  const [seen, setSeen] = useState(display.frameId);
+  if (seen !== display.frameId) {
+    setSeen(display.frameId);
+    const burst = burstOf(display);
+    if (burst) setBursts((b) => [...b, burst]);
+  }
+  useEffect(() => {
+    if (!bursts.length) return;
+    const last = bursts[bursts.length - 1];
+    const id = window.setTimeout(() => setBursts((b) => b.filter((x) => x.id > last.id)), last.duration);
+    return () => window.clearTimeout(id);
+  }, [bursts]);
+  if (!bursts.length) return null;
+  return (
+    <div className="particles" aria-hidden="true">
+      {bursts.flatMap((burst) => Array.from({ length: burst.count }, (_, i) => {
+        const angle = (i / burst.count) * Math.PI * 2 + (i % 3) * 0.35;
+        const dist = cell * burst.reach * (0.6 + ((i * 37) % 10) / 25);
+        const size = cell * (i % 4 === 0 ? UI.particles.big : UI.particles.small);
+        return (
+          <span
+            key={`${burst.id}-${i}`}
+            style={{
+              left: (burst.pos.col + 0.5) * cell,
+              top: (burst.pos.row + 0.5) * cell,
+              background: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
+              width: size,
+              height: size,
+              animationDuration: `${burst.duration}ms`,
+              ['--dx' as string]: `${Math.cos(angle) * dist}px`,
+              ['--dy' as string]: `${Math.sin(angle) * dist}px`,
+            }}
+          />
+        );
+      }))}
     </div>
   );
 }

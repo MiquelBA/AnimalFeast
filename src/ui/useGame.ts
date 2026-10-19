@@ -49,7 +49,15 @@ function pickHint(board: Board, config: GameConfig): readonly Pos[] | null {
   return chains.reduce((best, c) => (c.length > best.length ? c : best));
 }
 
-export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
+/** Feedback hooks (sound, vibration): called as frames show and when the game ends. */
+export interface GameFeedback {
+  readonly onFrame?: (frame: Frame) => void;
+  readonly onFinish?: (newBest: boolean) => void;
+}
+
+export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG, feedback: GameFeedback = {}) {
+  const feedbackRef = useRef(feedback);
+  useEffect(() => { feedbackRef.current = feedback; });
   const [game, setGame] = useState(() => createGame({ seed: newSeed(), config: initialConfig }));
   const gameRef = useRef(game);
   const config = game.config;
@@ -66,6 +74,7 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
   const [newBest, setNewBest] = useState(false);
   /** Only games with the default rules count for the record. */
   const recordsBest = useRef(initialConfig === DEFAULT_CONFIG);
+  const [records, setRecords] = useState(initialConfig === DEFAULT_CONFIG);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
   const [activity, setActivity] = useState(0);
@@ -83,11 +92,13 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
     setGame(state);
     setClockMs(clockOf(state));
     setPhase('over');
-    if (recordsBest.current && state.score > loadBest()) {
+    const isBest = recordsBest.current && state.score > loadBest();
+    if (isBest) {
       saveBest(state.score);
       setBest(state.score);
       setNewBest(true);
     }
+    feedbackRef.current.onFinish?.(isBest);
   }, [setPhase]);
 
   // Clock: runs only while playing and (by rule) not while a move's animations play.
@@ -162,6 +173,7 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
       const frame = frames[i];
       setDisplay({ ...frame, frameId: ++seq.current });
       addFloaters(frame.effects);
+      feedbackRef.current.onFrame?.(frame);
       if (i === frames.length - 1 && frame.kind === 'fall' && !gameRef.current.gameOver) {
         setGame(gameRef.current);
         setSettling(true);
@@ -194,6 +206,7 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
     timers.current = [];
     const config = options.config ?? gameRef.current.config;
     recordsBest.current = config === DEFAULT_CONFIG && !options.board;
+    setRecords(recordsBest.current);
     const fresh = createGame({ seed: options.seed ?? newSeed(), config, board: options.board });
     gameRef.current = fresh;
     setGame(fresh);
@@ -212,7 +225,7 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
   }, []);
 
   return {
-    game, config, display, phase, animating, settling, clockMs, best, newBest, floaters, hint,
+    game, config, display, phase, animating, settling, clockMs, best, records, newBest, floaters, hint,
     play, pause, resume, restart, noteActivity,
   };
 }

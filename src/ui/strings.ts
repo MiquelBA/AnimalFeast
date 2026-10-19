@@ -4,6 +4,8 @@ export const STRINGS = {
   score: 'Punts',
   best: 'Rècord',
   help: 'Ajuda',
+  soundOn: 'Activa el so',
+  soundOff: 'Silencia el so',
   pause: 'Pausa',
   resume: 'Continua',
   paused: 'En pausa',

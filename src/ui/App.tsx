@@ -1,5 +1,5 @@
 // Portrait game screen: HUD on top, the board in the middle, discreet controls at thumb height.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { minEnergyGain } from '../engine/score';
@@ -10,6 +10,9 @@ import { STRINGS } from './strings';
 import { UI } from './uiConfig';
 import { DebugPanel, type DebugSetup } from './DebugPanel';
 import { useGame, type NewGameOptions } from './useGame';
+import { unlockAudio } from './audio';
+import { finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
+import { loadFlag, saveFlag } from './storage';
 
 const theme = DEFAULT_THEME;
 const debugEnabled = (() => {
@@ -26,8 +29,33 @@ function formatClock(ms: number): string {
 }
 
 export function App() {
-  const g = useGame(DEFAULT_CONFIG);
+  const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
+  const soundRef = useRef(sound);
+  useEffect(() => { soundRef.current = sound; }, [sound]);
+  const g = useGame(DEFAULT_CONFIG, {
+    onFrame: (frame) => frameCue(frame, soundRef.current),
+    onFinish: (newBest) => finishCue(newBest, soundRef.current),
+  });
   const config = g.config;
+
+  // Browsers only allow sound after a touch: start the audio on the first one.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock);
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+  const toggleSound = () => {
+    unlockAudio();
+    setSound((on) => { saveFlag(UI.soundKey, !on); return !on; });
+  };
+
+  // Last seconds: a soft tick each second.
+  const lastTick = useRef<number | null>(null);
+  useEffect(() => {
+    if (g.phase !== 'playing' || config.mode !== 'time' || g.clockMs > UI.warningTickMs) return;
+    const second = Math.ceil(g.clockMs / 1000);
+    if (second > 0 && second !== lastTick.current) { lastTick.current = second; warningCue(soundRef.current); }
+  }, [g.clockMs, g.phase, config.mode]);
   const [sheet, setSheet] = useState<'help' | 'debug' | null>(null);
   const [debugSetup, setDebugSetup] = useState<DebugSetup>({ variant: 'base' });
   const pausedForSheet = useRef(false);
@@ -59,6 +87,9 @@ export function App() {
         {debugEnabled && (
           <button className="debug-btn" onClick={() => openSheet('debug')} aria-label={STRINGS.debug.open}>⚙</button>
         )}
+        <button className={`sound-btn${sound ? '' : ' off'}`} onClick={toggleSound} aria-label={sound ? STRINGS.soundOff : STRINGS.soundOn} aria-pressed={sound}>
+          <SpeakerIcon on={sound} />
+        </button>
         <h1 className="title">{STRINGS.title}</h1>
         <div className="hud-row">
           <div className="stat">
@@ -77,7 +108,7 @@ export function App() {
           )}
           <div className="stat">
             <span className="stat-label">{STRINGS.best}</span>
-            <span className="stat-value">{Math.max(g.best, g.game.score)}</span>
+            <span className="stat-value">{g.records ? Math.max(g.best, g.game.score) : g.best}</span>
           </div>
         </div>
       </header>
@@ -93,6 +124,8 @@ export function App() {
           enabled={boardEnabled}
           onPlay={g.play}
           onActivity={g.noteActivity}
+          onTraceStep={(length, status) => traceStepCue(length, status, sound)}
+          onReject={() => rejectCue(sound)}
         />
         <p className={`start-hint${g.phase === 'ready' ? '' : ' hidden'}`}>{STRINGS.tapToStart}</p>
       </main>
@@ -122,6 +155,8 @@ export function App() {
           stats={g.game}
           best={g.best}
           newBest={g.newBest}
+          theme={theme}
+          tierCount={config.tiers.length}
           onRestart={() => { setDebugSetup((d) => ({ variant: d.variant })); g.restart(); }}
         />
       )}
@@ -130,6 +165,19 @@ export function App() {
 }
 
 /** Predator first: each animal eats the one to its right. */
+function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M4 9 H8 L13 5 V19 L8 15 H4 Z" fill="currentColor" />
+      {on ? (
+        <path d="M16 8.5 Q18.5 12 16 15.5 M18.5 6 Q22.5 12 18.5 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      ) : (
+        <path d="M16.5 9 L21.5 15 M21.5 9 L16.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
 function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCount: number; large?: boolean }) {
   return (
     <ol className={`food-chain${large ? ' large' : ''}`} aria-label={STRINGS.helpChain}>
@@ -172,7 +220,50 @@ function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfi
   );
 }
 
-function GameOver({ title, stats, best, newBest, onRestart }: { title: string; stats: GameStats; best: number; newBest: boolean; onRestart: () => void }) {
+/** Counts from 0 up to `target` once, easing out. */
+function useCountUp(target: number, ms: number): number {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      setValue(Math.round(target * (1 - (1 - t) ** 3)));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return value;
+}
+
+const CONFETTI_COLORS = ['var(--gold)', 'var(--green)', 'var(--foam)', 'var(--white)', 'var(--lagoon)'];
+
+function Confetti() {
+  return (
+    <div className="confetti" aria-hidden="true">
+      {Array.from({ length: UI.confettiPieces }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            left: `${(i * 37) % 100}%`,
+            background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+            animationDelay: `${(i % 7) * 40}ms`,
+            animationDuration: `${UI.confettiMs - (i % 5) * 80}ms`,
+            ['--spin' as string]: `${(i % 2 ? 1 : -1) * (180 + (i * 53) % 360)}deg`,
+            ['--drift' as string]: `${((i * 29) % 60) - 30}px`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GameOver({ title, stats, best, newBest, theme, tierCount, onRestart }: {
+  title: string; stats: GameStats; best: number; newBest: boolean; theme: Theme; tierCount: number; onRestart: () => void;
+}) {
+  const score = useCountUp(stats.score, UI.countUpMs);
+  const top = themeLevels(theme, tierCount)[tierCount - 1];
   const rows: [string, number][] = [
     [STRINGS.statBest, best],
     [STRINGS.statChains, stats.chains],
@@ -182,14 +273,16 @@ function GameOver({ title, stats, best, newBest, onRestart }: { title: string; s
   ];
   return (
     <div className="overlay">
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
+      {newBest && <Confetti />}
+      <div className="sheet game-over" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="mascot" aria-hidden="true">{renderSprite(top.sprite, { color: top.color })}</div>
         <h2>{title}</h2>
         <div className="final-label">{STRINGS.statScore}</div>
-        <div className="final-score">{stats.score}</div>
+        <div className="final-score" aria-label={String(stats.score)}>{score}</div>
         {newBest && <div className="new-best">{STRINGS.newBest}</div>}
         <dl className="final-stats">
-          {rows.map(([label, value]) => (
-            <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+          {rows.map(([label, value], i) => (
+            <div key={label} style={{ animationDelay: `${120 + i * 60}ms` }}><dt>{label}</dt><dd>{value}</dd></div>
           ))}
         </dl>
         <button className="primary-btn" onClick={onRestart} autoFocus>{STRINGS.playAgain}</button>

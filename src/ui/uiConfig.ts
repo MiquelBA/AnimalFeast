@@ -19,4 +19,27 @@ export const UI = {
   /** Combo text by combo count (index = count − 2, last one repeats). */
   comboTextKeys: ['comboGreat', 'comboAmazing', 'comboFeast'] as const,
   bestScoreKey: 'animal-feast:best',
+  soundKey: 'animal-feast:sound',
+  /** Vibration patterns (ms on/off). */
+  haptics: {
+    step: [6],
+    chain: [18],
+    longChain: [25, 30, 25],
+    frenzy: [35, 40, 70],
+    invalid: [10, 40, 10],
+    gameOver: [40, 60, 40],
+  } as Record<string, number[]>,
+  /** Celebrations: board shake (fraction of a cell) and particles per burst. */
+  shake: { frenzy: 0.12, longChain: 0.05 },
+  particles: {
+    chain: 10, longChain: 16, frenzy: 26,
+    /** Sizes as fractions of a cell (every fourth one is big) and how far they fly, in cells. */
+    big: 0.2, small: 0.12, reach: 1.3, frenzyReach: 2.4,
+  },
+  /** Clock ticks in the last seconds. */
+  warningTickMs: 5000,
+  /** End screen: score count-up and confetti (outside play, so not bound by maxAnimMs). */
+  countUpMs: 500,
+  confettiMs: 1100,
+  confettiPieces: 28,
 } as const;
