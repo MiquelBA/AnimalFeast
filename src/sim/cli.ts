@@ -10,7 +10,7 @@ import type { GameConfig } from '../engine/types';
 import { BOT_NAMES, DEFAULT_BOT_OPTIONS, type BotName } from './bots';
 import { botMetrics, type BotMetrics } from './metrics';
 import type { GameTrace } from './run';
-import { VARIANTS, variantConfig, withSpawnWeights } from './variants';
+import { VARIANTS, variantConfig, withSpawnWeights } from '../engine/variants';
 import type { Job } from './worker';
 
 const SIM_KEYS = new Set(['games', 'variants', 'bots', 'spm', 'moves', 'animMs', 'workers', 'energyWeight', 'spawnWeights', 'timeBonus', 'out']);

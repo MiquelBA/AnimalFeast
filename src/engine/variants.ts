@@ -1,6 +1,6 @@
-// Rule variants compared by the simulator (one change at a time from the defaults, plus older rule sets).
-import { DEFAULT_CONFIG, makeConfig, type ConfigOverrides } from '../engine/config';
-import type { GameConfig } from '../engine/types';
+// Rule variants (simulator and debug panel) (one change at a time from the defaults, plus older rule sets).
+import { DEFAULT_CONFIG, makeConfig, type ConfigOverrides } from './config';
+import type { GameConfig } from './types';
 
 export function withSpawnWeights(weights: readonly number[], base: GameConfig = DEFAULT_CONFIG): ConfigOverrides {
   if (weights.length !== base.tiers.length) throw new Error(`Expected ${base.tiers.length} spawn weights`);

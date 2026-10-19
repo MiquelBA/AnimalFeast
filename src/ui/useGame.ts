@@ -22,6 +22,13 @@ export interface Floater {
   readonly effect: Effect;
 }
 
+export interface NewGameOptions {
+  readonly seed?: number;
+  readonly config?: GameConfig;
+  /** Starting board (debug); the config's board size is ignored. */
+  readonly board?: Board;
+}
+
 function idleDisplay(board: Board, frameId: number): Display {
   return { kind: 'idle', tiles: tilesOf(board), ghosts: [], entering: new Map(), effects: [], duration: 0, frameId };
 }
@@ -42,33 +49,41 @@ function pickHint(board: Board, config: GameConfig): readonly Pos[] | null {
   return chains.reduce((best, c) => (c.length > best.length ? c : best));
 }
 
-export function useGame(config: GameConfig = DEFAULT_CONFIG) {
-  const [game, setGame] = useState(() => createGame({ seed: newSeed(), config }));
+export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG) {
+  const [game, setGame] = useState(() => createGame({ seed: newSeed(), config: initialConfig }));
   const gameRef = useRef(game);
+  const config = game.config;
   const [display, setDisplay] = useState<Display>(() => idleDisplay(game.board, 0));
   const [phase, setPhaseState] = useState<Phase>('ready');
   const phaseRef = useRef<Phase>('ready');
   const [animating, setAnimatingState] = useState(false);
   const animatingRef = useRef(false);
+  /** True during a move's last fall: the final board is known, so a new trace may start. */
+  const [settling, setSettlingState] = useState(false);
+  const settlingRef = useRef(false);
   const [clockMs, setClockMs] = useState(() => clockOf(game));
   const [best, setBest] = useState(loadBest);
   const [newBest, setNewBest] = useState(false);
+  /** Only games with the default rules count for the record. */
+  const recordsBest = useRef(initialConfig === DEFAULT_CONFIG);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
   const [activity, setActivity] = useState(0);
   const timers = useRef<number[]>([]);
+  const frameTimer = useRef<number | null>(null);
   const seq = useRef(0);
 
   const setPhase = useCallback((p: Phase) => { phaseRef.current = p; setPhaseState(p); }, []);
   const setAnimating = useCallback((a: boolean) => { animatingRef.current = a; setAnimatingState(a); }, []);
+  const setSettling = useCallback((s: boolean) => { settlingRef.current = s; setSettlingState(s); }, []);
   const later = useCallback((fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); }, []);
 
   const finish = useCallback((state: GameState) => {
     gameRef.current = state;
     setGame(state);
-    setClockMs(0);
+    setClockMs(clockOf(state));
     setPhase('over');
-    if (state.score > loadBest()) {
+    if (recordsBest.current && state.score > loadBest()) {
       saveBest(state.score);
       setBest(state.score);
       setNewBest(true);
@@ -76,7 +91,7 @@ export function useGame(config: GameConfig = DEFAULT_CONFIG) {
   }, [setPhase]);
 
   // Clock: runs only while playing and (by rule) not while a move's animations play.
-  const clockStopped = phase !== 'playing' || (animating && config.pauseClockDuringResolution);
+  const clockStopped = phase !== 'playing' || config.mode !== 'time' || (animating && config.pauseClockDuringResolution);
   useEffect(() => {
     if (clockStopped) return;
     let last = performance.now();
@@ -111,9 +126,9 @@ export function useGame(config: GameConfig = DEFAULT_CONFIG) {
   const hintable = (phase === 'ready' || phase === 'playing') && !animating;
   useEffect(() => {
     if (!hintable) return;
-    const id = window.setTimeout(() => setHint(pickHint(gameRef.current.board, config)), UI.hintDelayMs);
+    const id = window.setTimeout(() => setHint(pickHint(gameRef.current.board, gameRef.current.config)), UI.hintDelayMs);
     return () => { window.clearTimeout(id); setHint(null); };
-  }, [hintable, activity, game, config]);
+  }, [hintable, activity, game]);
 
   const noteActivity = useCallback(() => setActivity((n) => n + 1), []);
 
@@ -125,54 +140,79 @@ export function useGame(config: GameConfig = DEFAULT_CONFIG) {
     later(() => setFloaters((f) => f.filter((x) => !ids.has(x.id))), UI.anim.floatText);
   }, [later]);
 
+  const stopFrames = useCallback(() => {
+    if (frameTimer.current !== null) window.clearTimeout(frameTimer.current);
+    frameTimer.current = null;
+  }, []);
+
+  /** Ends a move's animation: the board shows the engine's state and accepts traces again. */
+  const settle = useCallback(() => {
+    stopFrames();
+    const state = gameRef.current;
+    setDisplay(idleDisplay(state.board, ++seq.current));
+    setGame(state);
+    setSettling(false);
+    setAnimating(false);
+    if (state.gameOver) finish(state);
+  }, [finish, setAnimating, setSettling, stopFrames]);
+
   const runFrames = useCallback((frames: readonly Frame[]) => {
     const step = (i: number) => {
-      if (i >= frames.length) {
-        const state = gameRef.current;
-        setDisplay(idleDisplay(state.board, ++seq.current));
-        setGame(state);
-        setAnimating(false);
-        if (state.gameOver) finish(state);
-        return;
-      }
+      if (i >= frames.length) { settle(); return; }
       const frame = frames[i];
       setDisplay({ ...frame, frameId: ++seq.current });
       addFloaters(frame.effects);
-      later(() => step(i + 1), frame.duration);
+      if (i === frames.length - 1 && frame.kind === 'fall' && !gameRef.current.gameOver) {
+        setGame(gameRef.current);
+        setSettling(true);
+      }
+      frameTimer.current = window.setTimeout(() => step(i + 1), frame.duration);
     };
     step(0);
-  }, [addFloaters, finish, later, setAnimating]);
+  }, [addFloaters, settle, setSettling]);
 
   /** Plays a traced chain. Returns false (and changes nothing) when it can't be played. */
   const play = useCallback((path: readonly Pos[]): boolean => {
     const phaseNow = phaseRef.current;
-    if (animatingRef.current || (phaseNow !== 'ready' && phaseNow !== 'playing')) return false;
+    if (phaseNow !== 'ready' && phaseNow !== 'playing') return false;
+    if (animatingRef.current && !settlingRef.current) return false;
     const before = gameRef.current;
     const move = { path, atMs: before.elapsedMs };
     if (!isLegalMove(before, move)) return false;
+    if (animatingRef.current) settle(); // released during the last fall: skip to its end
     const { state, events } = applyMove(before, move);
     gameRef.current = state;
     if (phaseNow === 'ready') setPhase('playing');
     setAnimating(true);
     runFrames(buildFrames(before.board, events));
     return true;
-  }, [runFrames, setAnimating, setPhase]);
+  }, [runFrames, setAnimating, setPhase, settle]);
 
-  const restart = useCallback(() => {
+  const restart = useCallback((options: NewGameOptions = {}) => {
+    stopFrames();
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
-    const fresh = createGame({ seed: newSeed(), config });
+    const config = options.config ?? gameRef.current.config;
+    recordsBest.current = config === DEFAULT_CONFIG && !options.board;
+    const fresh = createGame({ seed: options.seed ?? newSeed(), config, board: options.board });
     gameRef.current = fresh;
     setGame(fresh);
     setDisplay(idleDisplay(fresh.board, ++seq.current));
     setClockMs(clockOf(fresh));
     setFloaters([]);
     setNewBest(false);
+    setSettling(false);
     setAnimating(false);
     setPhase('ready');
-  }, [config, setAnimating, setPhase]);
+  }, [setAnimating, setPhase, setSettling, stopFrames]);
 
-  useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), []);
+  useEffect(() => () => {
+    timers.current.forEach((id) => window.clearTimeout(id));
+    if (frameTimer.current !== null) window.clearTimeout(frameTimer.current);
+  }, []);
 
-  return { game, display, phase, animating, clockMs, best, newBest, floaters, hint, play, pause, resume, restart, noteActivity };
+  return {
+    game, config, display, phase, animating, settling, clockMs, best, newBest, floaters, hint,
+    play, pause, resume, restart, noteActivity,
+  };
 }

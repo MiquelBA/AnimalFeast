@@ -7,10 +7,17 @@ import { DEFAULT_THEME, type Theme } from '../themes';
 import { Board } from './Board';
 import { STRINGS } from './strings';
 import { UI } from './uiConfig';
-import { useGame } from './useGame';
+import { DebugPanel, type DebugSetup } from './DebugPanel';
+import { useGame, type NewGameOptions } from './useGame';
 
 const theme = DEFAULT_THEME;
-const config = DEFAULT_CONFIG;
+const debugEnabled = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('debug') === '1';
+  } catch {
+    return false;
+  }
+})();
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -18,36 +25,55 @@ function formatClock(ms: number): string {
 }
 
 export function App() {
-  const g = useGame(config);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const pausedForHelp = useRef(false);
+  const g = useGame(DEFAULT_CONFIG);
+  const config = g.config;
+  const [sheet, setSheet] = useState<'help' | 'debug' | null>(null);
+  const [debugSetup, setDebugSetup] = useState<DebugSetup>({ variant: 'base' });
+  const pausedForSheet = useRef(false);
 
-  const openHelp = () => {
-    pausedForHelp.current = g.phase === 'playing';
+  const openSheet = (which: 'help' | 'debug') => {
+    pausedForSheet.current = g.phase === 'playing';
     g.pause();
-    setHelpOpen(true);
+    setSheet(which);
   };
-  const closeHelp = () => {
-    setHelpOpen(false);
-    if (pausedForHelp.current) g.resume();
-    pausedForHelp.current = false;
+  const closeSheet = () => {
+    setSheet(null);
+    if (pausedForSheet.current) g.resume();
+    pausedForSheet.current = false;
+  };
+  const startDebugGame = (options: NewGameOptions, setup: DebugSetup) => {
+    setDebugSetup(setup);
+    setSheet(null);
+    pausedForSheet.current = false;
+    g.restart(options);
   };
 
-  const boardEnabled = (g.phase === 'ready' || g.phase === 'playing') && !g.animating && !helpOpen;
-  const warning = g.phase === 'playing' && g.clockMs <= UI.clockWarningMs;
+  const boardEnabled = (g.phase === 'ready' || g.phase === 'playing') && (!g.animating || g.settling) && !sheet;
+  const byMoves = config.mode === 'moves';
+  const warning = !byMoves && g.phase === 'playing' && g.clockMs <= UI.clockWarningMs;
 
   return (
     <div className="app">
       <header className="hud">
+        {debugEnabled && (
+          <button className="debug-btn" onClick={() => openSheet('debug')} aria-label={STRINGS.debug.open}>⚙</button>
+        )}
         <h1 className="title">{STRINGS.title}</h1>
         <div className="hud-row">
           <div className="stat">
             <span className="stat-label">{STRINGS.score}</span>
             <span className="stat-value">{g.game.score}</span>
           </div>
-          <div className={`clock${warning ? ' warning' : ''}`} role="timer" aria-label={STRINGS.clockLabel}>
-            {formatClock(g.clockMs)}
-          </div>
+          {byMoves ? (
+            <div className="clock" aria-label={STRINGS.movesLeft}>
+              <span className="clock-label">{STRINGS.movesLeft}</span>
+              {config.maxMoves - g.game.moves}
+            </div>
+          ) : (
+            <div className={`clock${warning ? ' warning' : ''}`} role="timer" aria-label={STRINGS.clockLabel}>
+              {formatClock(g.clockMs)}
+            </div>
+          )}
           <div className="stat">
             <span className="stat-label">{STRINGS.best}</span>
             <span className="stat-value">{Math.max(g.best, g.game.score)}</span>
@@ -71,15 +97,16 @@ export function App() {
       </main>
 
       <footer className="bottom">
-        <button className="round-btn" onClick={openHelp} aria-label={STRINGS.help}>?</button>
+        <button className="round-btn" onClick={() => openSheet('help')} aria-label={STRINGS.help}>?</button>
         <FoodChain theme={theme} />
         <button className="round-btn" onClick={g.pause} aria-label={STRINGS.pause} disabled={g.phase !== 'playing'}>
           <span className="pause-icon" aria-hidden="true" />
         </button>
       </footer>
 
-      {helpOpen && <HelpModal theme={theme} onClose={closeHelp} />}
-      {g.phase === 'paused' && !helpOpen && (
+      {sheet === 'help' && <HelpModal theme={theme} onClose={closeSheet} />}
+      {sheet === 'debug' && <DebugPanel game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
+      {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
           <div className="sheet">
             <h2>{STRINGS.paused}</h2>
@@ -89,7 +116,13 @@ export function App() {
         </div>
       )}
       {g.phase === 'over' && (
-        <GameOver stats={g.game} best={g.best} newBest={g.newBest} onRestart={g.restart} />
+        <GameOver
+          title={byMoves ? STRINGS.gameOverMoves : STRINGS.gameOver}
+          stats={g.game}
+          best={g.best}
+          newBest={g.newBest}
+          onRestart={() => { setDebugSetup((d) => ({ variant: d.variant })); g.restart(); }}
+        />
       )}
     </div>
   );
@@ -128,7 +161,7 @@ function HelpModal({ theme, onClose }: { theme: Theme; onClose: () => void }) {
   );
 }
 
-function GameOver({ stats, best, newBest, onRestart }: { stats: GameStats; best: number; newBest: boolean; onRestart: () => void }) {
+function GameOver({ title, stats, best, newBest, onRestart }: { title: string; stats: GameStats; best: number; newBest: boolean; onRestart: () => void }) {
   const rows: [string, number][] = [
     [STRINGS.statBest, best],
     [STRINGS.statChains, stats.chains],
@@ -138,8 +171,8 @@ function GameOver({ stats, best, newBest, onRestart }: { stats: GameStats; best:
   ];
   return (
     <div className="overlay">
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={STRINGS.gameOver}>
-        <h2>{STRINGS.gameOver}</h2>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
         <div className="final-label">{STRINGS.statScore}</div>
         <div className="final-score">{stats.score}</div>
         {newBest && <div className="new-best">{STRINGS.newBest}</div>}

@@ -189,7 +189,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         ))}
         {cell > 0 && display.tiles.map((t) => {
           const key = `${t.pos.row},${t.pos.col}`;
-          const idle = display.kind === 'idle';
+          const idle = display.kind === 'idle' || enabled;
           return (
             <Tile
               key={t.animal.id}

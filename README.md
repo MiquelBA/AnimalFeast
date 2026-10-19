@@ -1,32 +1,11 @@
-# React + TypeScript + Vite
+# ANIMAL FEAST
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Prototip de joc de trencaclosques per a mòbil: traça cadenes alimentàries (sardina → tonyina → tauró → orca) amb el dit.
 
-Currently, two official plugins are available:
+- `npm install` i després `npm run dev -- --host` per jugar-hi des del mòbil a la mateixa wifi.
+- `npm test`, `npm run typecheck` i `npm run lint` per comprovar el codi.
+- `npm run sim` per al simulador de bots (vegeu FITA2.md).
+- `?debug=1` a l'adreça obre el panell de proves.
+- Publicació: [PUBLICAR.md](PUBLICAR.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Regles: `REGLES.md` (carpeta del projecte). Resums de cada fita: FITA1B.md, FITA2.md, FITA3.md i FITA4.md.

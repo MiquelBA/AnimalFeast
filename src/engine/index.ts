@@ -6,3 +6,4 @@ export * from './chains';
 export * from './score';
 export * from './game';
 export * from './notation';
+export * from './variants';
