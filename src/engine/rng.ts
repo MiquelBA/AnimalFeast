@@ -1,6 +1,5 @@
 // Seeded RNG (mulberry32). Pure: the state is a uint32 carried in GameState.
-import { SPECIES_ORDER } from './config';
-import type { Animal, GameConfig, SpawnWeights, Species } from './types';
+import type { GameConfig, Tier } from './types';
 
 const UINT32_RANGE = 4294967296;
 
@@ -17,37 +16,21 @@ export function nextRandom(state: number): [value: number, next: number] {
   return [((t ^ (t >>> 14)) >>> 0) / UINT32_RANGE, next];
 }
 
-export function spawnWeightsForTurn(turn: number, config: GameConfig): SpawnWeights {
-  let weights: SpawnWeights | null = null;
-  for (const entry of config.spawnSchedule ?? []) {
-    if (entry.fromTurn <= turn) weights = entry.weights;
-  }
-  if (weights) return weights;
-  const base = {} as Record<Species, number>;
-  for (const s of SPECIES_ORDER) base[s] = config.species[s].spawnWeight;
-  return base;
+/** Integer in [0, n). */
+export function nextInt(state: number, n: number): [value: number, next: number] {
+  const [r, next] = nextRandom(state);
+  return [Math.floor(r * n), next];
 }
 
-export function pickWeighted(weights: SpawnWeights, r: number): Species {
-  const total = SPECIES_ORDER.reduce((sum, s) => sum + weights[s], 0);
+export function pickTier(config: GameConfig, r: number): Tier {
+  const weights = config.tiers.map((t) => t.spawnWeight);
+  const total = weights.reduce((a, b) => a + b, 0);
   if (total <= 0) throw new Error('Spawn weights must add up to a positive number');
   let target = r * total;
-  for (const s of SPECIES_ORDER) {
-    target -= weights[s];
-    if (target < 0) return s;
+  for (let i = 0; i < weights.length; i++) {
+    target -= weights[i];
+    if (target < 0) return i + 1;
   }
-  // Floating-point edge: fall back to the last species with weight.
-  return [...SPECIES_ORDER].reverse().find((s) => weights[s] > 0)!;
-}
-
-export interface Draw {
-  readonly animal: Animal;
-  readonly rngState: number;
-  readonly nextId: number;
-}
-
-export function drawAnimal(rngState: number, nextId: number, turn: number, config: GameConfig): Draw {
-  const [r, next] = nextRandom(rngState);
-  const species = pickWeighted(spawnWeightsForTurn(turn, config), r);
-  return { animal: { id: nextId, species, energy: config.placedEnergy }, rngState: next, nextId: nextId + 1 };
+  // Floating-point edge: last tier with weight.
+  return weights.findLastIndex((w) => w > 0) + 1;
 }

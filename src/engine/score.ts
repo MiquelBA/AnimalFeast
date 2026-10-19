@@ -1,29 +1,26 @@
-// Scoring and energy (REGLES.md §4–5, §8).
+// Points and energy (REGLES.md v0.2 §3–4, §6).
 import type { Animal, GameConfig } from './types';
 
-/** Points for a capture before the chain multiplier. */
-export function captureValue(predator: Animal, prey: Animal, config: GameConfig): number {
-  const base = config.species[prey.species].basePoints + prey.energy * config.pointsPerPreyEnergy;
-  return base * (predator.species === prey.species ? config.sameSpeciesMultiplier : 1);
+/** Points for one prey before multipliers. */
+export function preyValue(prey: Animal, config: GameConfig): number {
+  return config.tiers[prey.tier - 1].basePoints + prey.energy * config.pointsPerPreyEnergy;
 }
 
-/** Multiplier for the i-th capture of a turn (1-based). */
-export function chainMultiplier(chain: number, config: GameConfig): number {
-  const m = config.chainMultipliers;
-  return m[Math.min(chain, m.length) - 1];
+export function energyFromPrey(prey: Animal, config: GameConfig): number {
+  return config.tiers[prey.tier - 1].energyValue + Math.floor(prey.energy * config.inheritRatio);
 }
 
-export function capturePoints(value: number, chain: number, config: GameConfig): number {
-  return Math.round(value * chainMultiplier(chain, config));
+export function chainPoints(prey: readonly Animal[], lengthMultiplier: number, comboMultiplier: number, config: GameConfig): number {
+  const sum = prey.reduce((s, a) => s + preyValue(a, config), 0);
+  return Math.round(sum * lengthMultiplier * comboMultiplier);
 }
 
-export function energyGained(prey: Animal, config: GameConfig): number {
-  return config.species[prey.species].energyValue + Math.floor(prey.energy * config.inheritRatio);
+export function frenzyPoints(prey: Animal, config: GameConfig): number {
+  return Math.round(preyValue(prey, config) * config.frenzyMultiplier);
 }
 
-/** Visual tier: index of the highest threshold in energyTiers reached by `energy`. */
-export function energyTier(energy: number, config: GameConfig): number {
-  let tier = 0;
-  config.energyTiers.forEach((threshold, i) => { if (energy >= threshold) tier = i; });
-  return tier;
+/** Multiplier for the n-th consecutive fast move (n ≥ 1). */
+export function comboMultiplier(count: number, config: GameConfig): number {
+  const m = config.comboMultipliers;
+  return m[Math.min(count, m.length) - 1];
 }

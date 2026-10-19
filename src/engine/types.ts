@@ -1,10 +1,11 @@
-// Core engine types. Pure data: everything here is JSON-serializable.
+// Core engine types (REGLES.md v0.2). Pure data: everything here is JSON-serializable.
+// The engine only knows trophic tiers (1 = lowest); species, names and art come from themes.
 
-export type Species = 'SARDINE' | 'TUNA' | 'SHARK' | 'ORCA';
+export type Tier = number;
 
-export type EatRule = 'oneLevelBelow' | 'anyLower';
+export type Adjacency = 4 | 8;
 
-export type Direction = 'N' | 'E' | 'S' | 'W';
+export type GameMode = 'time' | 'moves';
 
 export interface Pos {
   readonly row: number;
@@ -13,112 +14,127 @@ export interface Pos {
 
 export interface Animal {
   readonly id: number;
-  readonly species: Species;
+  readonly tier: Tier;
   readonly energy: number;
 }
 
 export type Cell = Animal | null;
 
-/** Row-major grid: board[row][col]. (0,0) is top-left. */
+/** Row-major grid: board[row][col]. (0,0) is top-left. May be rectangular (tests). */
 export type Board = readonly (readonly Cell[])[];
 
-export interface SpeciesDef {
-  readonly level: number;
-  /** Energy the predator gains (before inheritance) when this species is eaten. */
+export interface TierDef {
+  /** Energy the predator gains (before inheritance) when an animal of this tier is eaten. */
   readonly energyValue: number;
   readonly basePoints: number;
   readonly spawnWeight: number;
 }
 
-export type SpawnWeights = Readonly<Record<Species, number>>;
-
-export interface SpawnScheduleEntry {
-  /** Weights apply from this turn number (inclusive) until the next entry. */
-  readonly fromTurn: number;
-  readonly weights: SpawnWeights;
-}
-
 export interface GameConfig {
   readonly boardSize: number;
-  readonly handSize: number;
-  readonly species: Readonly<Record<Species, SpeciesDef>>;
-  readonly eatRule: EatRule;
-  readonly sameSpeciesCaptures: boolean;
-  readonly predatorMovesIntoPrey: boolean;
-  readonly placedEnergy: number;
+  /** tiers[i] describes tier i + 1. */
+  readonly tiers: readonly TierDef[];
+  readonly adjacency: Adjacency;
+  readonly allowDescendingTrace: boolean;
+  readonly chainLengths: readonly number[];
+  readonly spawnEnergy: number;
   readonly inheritRatio: number;
   readonly pointsPerPreyEnergy: number;
-  readonly sameSpeciesMultiplier: number;
-  readonly chainMultipliers: readonly number[];
-  /** null = always use each species' spawnWeight. */
-  readonly spawnSchedule: readonly SpawnScheduleEntry[] | null;
-  /** Visual only: energy thresholds for visual tiers 0..n. */
-  readonly energyTiers: readonly number[];
+  /** Keyed by chain length. */
+  readonly lengthMultiplier: Readonly<Record<number, number>>;
+  readonly comboWindowMs: number;
+  readonly comboMultipliers: readonly number[];
+  readonly frenzyThreshold: number;
+  readonly frenzyMultiplier: number;
+  /** Frenzy eats neighbours with this adjacency (REGLES.md §6 says 8 directions). */
+  readonly frenzyAdjacency: Adjacency;
+  readonly minValidMoves: number;
+  readonly minInitialMoves: number;
+  readonly maxShuffleAttempts: number;
+  /** Safety cap for generating a board with enough chains. */
+  readonly maxBoardGenerationAttempts: number;
+  readonly mode: GameMode;
+  readonly durationMs: number;
+  readonly timeBonusMs: { readonly chain4: number; readonly frenzy: number };
+  /** UI hint: stop the clock while a move's animations play. */
+  readonly pauseClockDuringResolution: boolean;
+  readonly maxMoves: number;
 }
 
+/** A traced chain: cells in the order the finger visited them; atMs is game time (time mode). */
 export interface Move {
-  readonly handIndex: number;
-  readonly row: number;
-  readonly col: number;
+  readonly path: readonly Pos[];
+  readonly atMs?: number;
 }
 
 export interface GameStats {
   readonly score: number;
-  readonly totalCaptures: number;
-  readonly longestChain: number;
-  readonly turns: number;
-  readonly finalBoard: Readonly<Record<Species, number>>;
+  readonly chains: number;
+  readonly chains4: number;
+  readonly frenzies: number;
+  readonly maxCombo: number;
+  readonly bestMove: number;
+  readonly shuffles: number;
+  readonly moves: number;
 }
 
 export interface GameState {
   readonly config: GameConfig;
   readonly seed: number;
   readonly rngState: number;
+  /** Fixed spawn queue (tests); when empty, spawns come from the RNG. */
+  readonly spawnQueue: readonly Tier[];
   readonly nextId: number;
   readonly board: Board;
-  readonly hand: readonly Animal[];
-  /** Number of moves played so far. */
-  readonly turn: number;
   readonly score: number;
-  readonly totalCaptures: number;
-  readonly longestChain: number;
+  readonly moves: number;
+  /** Game clock (time mode), advanced by tick() and by each move's atMs. */
+  readonly elapsedMs: number;
+  /** durationMs plus time bonuses earned so far. */
+  readonly timeLimitMs: number;
+  readonly lastMoveAtMs: number | null;
+  readonly combo: number;
+  readonly chains: number;
+  readonly chains4: number;
+  readonly frenzies: number;
+  readonly maxCombo: number;
+  readonly bestMove: number;
+  readonly shuffles: number;
   readonly gameOver: boolean;
   readonly history: readonly Move[];
 }
 
-export type CaptureKind = 'hunt' | 'hunted';
+export interface Fall {
+  readonly id: number;
+  readonly from: Pos;
+  readonly to: Pos;
+}
+
+export type TimeBonusReason = 'chain4' | 'frenzy';
 
 export type GameEvent =
-  | { readonly type: 'place'; readonly animal: Animal; readonly pos: Pos; readonly handIndex: number }
   | {
-      readonly type: 'capture';
-      /** 'hunt': the focus ate a neighbour. 'hunted': a neighbour ate the focus. */
-      readonly kind: CaptureKind;
+      readonly type: 'chain';
+      /** Ascending order (prey first, predator last), whatever direction was traced. */
+      readonly path: readonly Pos[];
       readonly predator: Animal;
-      readonly prey: Animal;
-      readonly predatorFrom: Pos;
-      readonly preyPos: Pos;
-      readonly predatorTo: Pos;
-      /** The cell left empty by this capture. */
-      readonly vacated: Pos;
-      readonly sameSpecies: boolean;
-      readonly value: number;
-      readonly multiplier: number;
       readonly points: number;
-      readonly chain: number;
+      readonly lengthMultiplier: number;
+      readonly comboMultiplier: number;
     }
-  | {
-      readonly type: 'energyGain';
-      readonly animalId: number;
-      readonly pos: Pos;
-      readonly from: number;
-      readonly to: number;
-      readonly tierFrom: number;
-      readonly tierTo: number;
-    }
-  | { readonly type: 'chainStep'; readonly chain: number; readonly multiplier: number; readonly turnPoints: number }
-  | { readonly type: 'handRefill'; readonly handIndex: number; readonly animal: Animal }
-  | { readonly type: 'turnEnd'; readonly turn: number; readonly chain: number; readonly turnPoints: number }
+  | { readonly type: 'eat'; readonly prey: Animal; readonly from: Pos; readonly predatorId: number; readonly to: Pos; readonly frenzy: boolean }
+  | { readonly type: 'energyGain'; readonly animalId: number; readonly pos: Pos; readonly from: number; readonly to: number }
+  | { readonly type: 'fall'; readonly falls: readonly Fall[] }
+  | { readonly type: 'spawn'; readonly animal: Animal; readonly pos: Pos }
+  | { readonly type: 'frenzy'; readonly predator: Animal; readonly pos: Pos; readonly prey: readonly { readonly animal: Animal; readonly pos: Pos; readonly points: number }[]; readonly points: number }
+  /** The frenzied predator leaves the board (its cell empties). */
+  | { readonly type: 'leave'; readonly animal: Animal; readonly pos: Pos }
+  | { readonly type: 'shuffle'; readonly moves: readonly Fall[]; readonly attempts: number }
+  /** Shuffling failed maxShuffleAttempts times: the whole board was replaced. */
+  | { readonly type: 'regenerate'; readonly removed: readonly Animal[]; readonly board: Board }
+  | { readonly type: 'timeBonus'; readonly reason: TimeBonusReason; readonly ms: number; readonly timeLimitMs: number }
+  | { readonly type: 'combo'; readonly count: number; readonly multiplier: number }
+  | { readonly type: 'moveEnd'; readonly points: number }
   | { readonly type: 'gameOver'; readonly stats: GameStats };
 
 export interface MoveResult {

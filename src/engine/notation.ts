@@ -1,35 +1,39 @@
 // Text notation for boards, shared by tests and the debug panel.
-// Rows separated by "/", cells by spaces: "O . . / S R3 . / . . .".
-// Letters: S sardine, T tuna, R shark, O orca; optional number = energy; "." = empty.
-// Missing rows/columns are filled with empty cells up to boardSize.
-import type { Animal, Board, Cell, Species } from './types';
+// Rows top to bottom, separated by "/" or newlines; cells by spaces: "O O O / S S S / S T R3".
+// Letters are tiers: S = 1, T = 2, R = 3, O = 4 (Ocean names); an optional number is the energy.
+// Boards may be rectangular.
+import type { Animal, Board, Cell, Tier } from './types';
 
-export const SPECIES_LETTER: Readonly<Record<Species, string>> = { SARDINE: 'S', TUNA: 'T', SHARK: 'R', ORCA: 'O' };
-
-const LETTER_SPECIES: Readonly<Record<string, Species>> = Object.fromEntries(
-  Object.entries(SPECIES_LETTER).map(([s, l]) => [l, s as Species]),
-);
+export const TIER_LETTERS: readonly string[] = ['S', 'T', 'R', 'O'];
 
 const TOKEN = /^([A-Z])(\d*)$/;
 
-export function parseBoard(text: string, size: number, firstId = 1): Board {
-  const rows = text.trim() ? text.trim().split('/').map((r) => r.trim().split(/\s+/).filter(Boolean)) : [];
-  if (rows.length > size || rows.some((r) => r.length > size)) throw new Error(`Board text exceeds ${size}x${size}`);
+export function parseBoard(text: string, firstId = 1): Board {
+  const lines = text.split(/[/\n]/).map((l) => l.trim()).filter(Boolean);
+  const grid = lines.map((l) => l.split(/\s+/));
+  if (grid.some((row) => row.length !== grid[0].length)) throw new Error('All board rows must have the same length');
   let id = firstId;
-  return Array.from({ length: size }, (_, r) =>
-    Array.from({ length: size }, (_, c): Cell => {
-      const token = rows[r]?.[c] ?? '.';
+  return grid.map((row, r) =>
+    row.map((token, c): Cell => {
       if (token === '.') return null;
       const m = TOKEN.exec(token);
-      const species = m && LETTER_SPECIES[m[1]];
-      if (!m || !species) throw new Error(`Bad cell token "${token}" at (${r},${c})`);
-      return { id: id++, species, energy: m[2] ? Number(m[2]) : 0 };
+      const index = m ? TIER_LETTERS.indexOf(m[1]) : -1;
+      if (!m || index < 0) throw new Error(`Bad cell token "${token}" at (${r},${c})`);
+      return { id: id++, tier: index + 1, energy: m[2] ? Number(m[2]) : 0 };
     }),
   );
 }
 
+export function parseTiers(text: string): Tier[] {
+  return text.split(/[\s,]+/).filter(Boolean).map((l) => {
+    const index = TIER_LETTERS.indexOf(l);
+    if (index < 0) throw new Error(`Bad tier letter "${l}"`);
+    return index + 1;
+  });
+}
+
 export function animalToken(a: Animal): string {
-  return SPECIES_LETTER[a.species] + (a.energy ? String(a.energy) : '');
+  return (TIER_LETTERS[a.tier - 1] ?? String(a.tier)) + (a.energy ? String(a.energy) : '');
 }
 
 export function boardToString(board: Board): string {

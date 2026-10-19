@@ -1,27 +1,27 @@
 import { makeConfig, type ConfigOverrides } from '../config';
 import { applyMove, createGame } from '../game';
-import { boardToString, parseBoard } from '../notation';
-import type { GameConfig, GameState, MoveResult, Species } from '../types';
+import { boardToString, parseBoard, parseTiers } from '../notation';
+import type { GameEvent, GameState, MoveResult, Pos } from '../types';
 
-const LETTERS: Record<string, Species> = { S: 'SARDINE', T: 'TUNA', R: 'SHARK', O: 'ORCA' };
-
-/** Builds a state from board text, with `letter` as first hand card (rest are sardines). */
-export function setup(boardText: string, letter: string, overrides: ConfigOverrides = {}): GameState {
-  const config: GameConfig = makeConfig(overrides);
-  const board = parseBoard(boardText, config.boardSize);
-  return createGame({ seed: 1, config, board, hand: [LETTERS[letter], 'SARDINE', 'SARDINE'] });
+/** Builds a state from board text. Defaults to moves mode so tests need no clock. */
+export function setup(boardText: string, opts: { queue?: string; config?: ConfigOverrides } = {}): GameState {
+  const config = makeConfig({ mode: 'moves', maxMoves: 1000, ...opts.config });
+  return createGame({ seed: 1, config, board: parseBoard(boardText), spawnQueue: parseTiers(opts.queue ?? '') });
 }
 
-/** Places the first hand card at (row, col). */
-export function place(state: GameState, row: number, col: number): MoveResult {
-  return applyMove(state, { handIndex: 0, row, col });
+/** "(2,0) (2,1) (2,2)" or [[2,0],[2,1]] → Pos[] */
+export function path(...cells: [number, number][]): Pos[] {
+  return cells.map(([row, col]) => ({ row, col }));
 }
 
-/** Board text normalised through the parser, for readable comparisons. */
-export function board(text: string, size = 6): string {
-  return boardToString(parseBoard(text, size));
+export function trace(state: GameState, cells: [number, number][], atMs?: number): MoveResult {
+  return applyMove(state, { path: path(...cells), atMs });
 }
 
-export function captures(result: MoveResult) {
-  return result.events.filter((e) => e.type === 'capture');
+export function board(text: string): string {
+  return boardToString(parseBoard(text));
+}
+
+export function ofType<T extends GameEvent['type']>(events: readonly GameEvent[], type: T) {
+  return events.filter((e): e is Extract<GameEvent, { type: T }> => e.type === type);
 }
