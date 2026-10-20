@@ -697,3 +697,68 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tabs button.on { background: var(--white); color: var(--ink); }
 .rating { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 10px; font-weight: 800; }
 .rating button { width: 44px; height: 44px; border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 22px; }
+
+/* Looks: visual mock-ups to compare (?look=<name>, src/ui/look.ts). Every look colours each
+   animal's square, so chains read at a glance; the order of the colours follows the food chain. */
+:root[data-look] [data-animal='plankton'] { --tile-bg: var(--look-1); }
+:root[data-look] [data-animal='sardine'] { --tile-bg: var(--look-2); }
+:root[data-look] [data-animal='tuna'] { --tile-bg: var(--look-3); }
+:root[data-look] [data-animal='shark'] { --tile-bg: var(--look-4); }
+:root[data-look] [data-animal='orca'] { --tile-bg: var(--look-5); }
+:root[data-look] [data-animal='octopus'] { --tile-bg: var(--look-wild); }
+:root[data-look] [data-animal='whirlpool'] { --tile-bg: var(--look-whirl); }
+:root[data-look] .tile-inner,
+:root[data-look] .tile.wild .tile-inner,
+:root[data-look] .tutorial-cell .tile-art { background: var(--tile-bg); }
+:root[data-look] .chain-animal { border-radius: 30%; background: var(--tile-bg); padding: 2px; }
+:root[data-look] .tutorial-chain-demo li .art { border-radius: 26%; background: var(--tile-bg); padding: 4px; box-sizing: border-box; }
+:root[data-look] .cell-bg::after { background: rgba(255, 255, 255, 0.06); }
+:root[data-look] .tile.mark-partial .tile-inner,
+:root[data-look] .tile.mark-valid .tile-inner,
+:root[data-look] .tile.mark-invalid .tile-inner { background: var(--tile-bg); filter: brightness(1.12); }
+:root[data-look] .tile.mark-partial .tile-inner { box-shadow: 0 0 0 3px var(--white); }
+:root[data-look] .tile.mark-valid .tile-inner { box-shadow: 0 0 0 4px var(--green), 0 0 12px var(--green); }
+:root[data-look] .tile.mark-invalid .tile-inner { box-shadow: 0 0 0 4px var(--danger); }
+
+/* Stickers: flat, bright squares with a white edge, and animals cut out in white. */
+:root[data-look='adhesius'] {
+  --look-1: #3FAE49; --look-2: #2F80ED; --look-3: #F6C23E; --look-4: #F2994A; --look-5: #9B51E0;
+  --look-wild: #FF7EB6; --look-whirl: #2DD4BF;
+}
+:root[data-look='adhesius'] .tile-inner,
+:root[data-look='adhesius'] .tutorial-cell .tile-art { border: 3px solid var(--white); box-sizing: border-box; box-shadow: 0 3px 0 rgba(6, 42, 74, 0.35); }
+:root[data-look='adhesius'] .tile-art svg,
+:root[data-look='adhesius'] .chain-animal svg,
+:root[data-look='adhesius'] .tutorial-cell svg {
+  filter: drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);
+}
+
+/* Illustrated: soft pastel squares with light and depth, like a picture book. */
+:root[data-look='illustrat'] {
+  --look-1: #CDEFC4; --look-2: #CFE8FF; --look-3: #FFF1B8; --look-4: #FFDCC2; --look-5: #E5D9FF;
+  --look-wild: #FFD6E8; --look-whirl: #C8F4EE;
+}
+:root[data-look='illustrat'] .tile-inner,
+:root[data-look='illustrat'] .tutorial-cell .tile-art {
+  border-radius: 32%;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 55%), var(--tile-bg);
+  box-shadow: inset 0 -5px 0 rgba(6, 42, 74, 0.14), 0 4px 8px rgba(6, 42, 74, 0.25);
+}
+:root[data-look='illustrat'] .tile-art { inset: 0; }
+:root[data-look='illustrat'] .board,
+:root[data-look='illustrat'] .tutorial-board { background: rgba(255, 255, 255, 0.18); }
+
+/* High contrast: a dark screen and pure, saturated squares; nothing else competes. */
+:root[data-look='contrast'] {
+  --look-1: #00C853; --look-2: #00A8FF; --look-3: #FFE100; --look-4: #FF6D00; --look-5: #D500F9;
+  --look-wild: #FF4081; --look-whirl: #1DE9B6;
+}
+:root[data-look='contrast'] body { background: #0B0F1C; }
+:root[data-look='contrast'] .tile-inner,
+:root[data-look='contrast'] .tutorial-cell .tile-art { border-radius: 14%; }
+:root[data-look='contrast'] .board,
+:root[data-look='contrast'] .tutorial-board { background: #000; box-shadow: none; }
+:root[data-look='contrast'] .cell-bg::after { background: rgba(255, 255, 255, 0.04); }
+:root[data-look] .tile.golden .tile-inner { box-shadow: inset 0 0 0 3px var(--gold), 0 0 10px var(--gold); }
+:root[data-look] .tutorial-cell.on .tile-art { box-shadow: 0 0 0 4px var(--green), 0 0 12px var(--green); }
+:root[data-look] .tutorial-cell.bad .tile-art { box-shadow: 0 0 0 4px var(--red); }

@@ -23,6 +23,7 @@ import { unlockAudio } from './audio';
 import { Ambient } from './fx/Ambient';
 import { countdownCue, finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
 import { loadFlag, saveFlag } from './storage';
+import { applyLook } from './look';
 
 function urlParam(name: string): string | null {
   try {
@@ -32,6 +33,8 @@ function urlParam(name: string): string | null {
   }
 }
 const debugEnabled = urlParam('debug') === '1';
+/** ?look=<name> tries one of the visual mock-ups (see look.ts); the phone remembers it. */
+applyLook(urlParam('look'));
 /** ?scenario=<id> picks the world (only the ocean for now). */
 const scenario = scenarioById(urlParam('scenario'));
 const theme = scenario.theme;
@@ -342,7 +345,7 @@ function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCoun
         return (
           <li key={level.id}>
             {i > 0 && <span className="arrow" aria-hidden="true"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>}
-            <span className="chain-animal" title={level.name}>
+            <span className="chain-animal" title={level.name} data-animal={level.id}>
               {renderSprite(level.sprite, { color: level.color })}
               {large && <span className="chain-name">{level.name}</span>}
             </span>

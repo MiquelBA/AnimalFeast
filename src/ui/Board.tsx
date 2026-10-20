@@ -277,7 +277,7 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
   const classes = ['tile', mark && `mark-${mark}`, hinted && 'hint', near && 'near', animal.golden && 'golden', animal.wild && !animal.whirl && 'wild', animal.whirl && 'whirl']
     .filter(Boolean).join(' ');
   return (
-    <div ref={ref} className={classes} style={{ width: cell, height: cell, transform: px(pos, cell) }} data-tier={animal.tier}>
+    <div ref={ref} className={classes} style={{ width: cell, height: cell, transform: px(pos, cell) }} data-tier={animal.tier} data-animal={level.id}>
       <div className="tile-inner">
         <div className="tile-art" style={{ transform: `scale(${1 + UI.energyScale * ratio})`, filter: ratio ? `brightness(${1 + 0.3 * ratio}) saturate(${1 + 0.4 * ratio})` : undefined }}>
           {renderSprite(level.sprite, { color: level.color })}
@@ -319,7 +319,7 @@ function GhostTile({ ghost, index, cell, theme, tierCount, duration, spin }: { g
     }
   }, [ghost, index, cell, duration, spin]);
   return (
-    <div ref={ref} className="tile ghost" style={{ width: cell, height: cell, transform: px(ghost.from, cell) }}>
+    <div ref={ref} className="tile ghost" style={{ width: cell, height: cell, transform: px(ghost.from, cell) }} data-animal={level.id}>
       <div className="tile-inner"><div className="tile-art">{renderSprite(level.sprite, { color: level.color })}</div></div>
     </div>
   );

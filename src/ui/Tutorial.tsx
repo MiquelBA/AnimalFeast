@@ -154,7 +154,7 @@ function DemoBoard({ scene, levels, wild }: { scene: Scene; levels: readonly The
         const pips = frame.pips && key(frame.pips.at) === key(p) ? frame.pips.count : null;
         return (
           // The key changes with each chomp, so the animation replays.
-          <div key={`${k}-${frame.chomp && key(frame.chomp) === key(p) ? scene.frames.indexOf(frame) : 0}`} className={classes} style={{ left: p.col * cell, top: p.row * cell, width: cell, height: cell }}>
+          <div key={`${k}-${frame.chomp && key(frame.chomp) === key(p) ? scene.frames.indexOf(frame) : 0}`} className={classes} style={{ left: p.col * cell, top: p.row * cell, width: cell, height: cell }} data-animal={look?.id}>
             {look && <div className="tile-art">{renderSprite(look.sprite, { color: look.color })}</div>}
             {pips !== null && (
               <div className="tutorial-pips">
@@ -194,7 +194,7 @@ function ChainDemo({ levels }: { levels: readonly ThemeLevel[] }) {
     <div className="tutorial-chain-demo" aria-hidden="true">
       <ol>
         {shown.map((l, i) => (
-          <li key={l.id} className={i === pair ? 'eater' : i === pair + 1 ? 'eaten' : ''}>
+          <li key={l.id} className={i === pair ? 'eater' : i === pair + 1 ? 'eaten' : ''} data-animal={l.id}>
             <span className="art">{renderSprite(l.sprite, { color: l.color })}</span>
             <span className="name">{l.name}</span>
           </li>
