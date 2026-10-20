@@ -70,7 +70,7 @@ on conflict do nothing;
 -- Same normalisation as the game (src/leaderboard/names.ts): lowercase, no accents, digits and
 -- symbols read as letters, only letters kept.
 create or replace function public.normalize_name(raw text) returns text
-language sql immutable as $$
+language sql immutable set search_path = public as $$
   select regexp_replace(
     translate(lower(raw), 'àáâäãèéêëìíîïòóôöõùúûüçñ013457@$', 'aaaaaeeeeiiiiooooouuuucnoieastas'),
     '[^a-z]', '', 'g')
@@ -84,8 +84,13 @@ $$;
 -- 2 and 3. Scores ------------------------------------------------------------------------------
 
 alter table public.scores add column if not exists hidden boolean not null default false;
-alter table public.scores drop constraint if exists scores_score_check;
-alter table public.scores add constraint scores_score_check check (score between 1 and 400000) not valid;
+-- A second check next to the original one (1 to 10M), so nothing needs dropping. NOT VALID: rows
+-- already there are left alone.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'scores_score_max') then
+    alter table public.scores add constraint scores_score_max check (score between 1 and 400000) not valid;
+  end if;
+end $$;
 
 drop policy if exists "anyone adds a score" on public.scores;
 create policy "anyone adds a score" on public.scores
@@ -163,3 +168,7 @@ end $$;
 drop trigger if exists feedback_rate_limit on public.feedback;
 create trigger feedback_rate_limit before insert on public.feedback
   for each row execute function public.feedback_rate_limit();
+
+-- The rate-limit functions only run as triggers: nobody needs to call them directly.
+revoke execute on function public.scores_rate_limit() from public, anon, authenticated;
+revoke execute on function public.feedback_rate_limit() from public, anon, authenticated;
