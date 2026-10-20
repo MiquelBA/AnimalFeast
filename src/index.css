@@ -417,6 +417,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   place-items: center;
 }
 .sound-btn.off { opacity: 0.6; }
+.music-btn { right: 38px; }
 
 /* Debug panel (?debug=1) */
 .debug-btn {

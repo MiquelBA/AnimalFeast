@@ -29,7 +29,7 @@ export function frameCue(frame: Frame, sound: boolean): void {
     // The chain's notes as a quick run; each wave of reactions starts higher up the ladder.
     const length = frame.ghosts.filter((g) => g.kind === 'swallow').length + 1;
     const run = Math.min(length, UI.sound.maxRunNotes);
-    if (sound) playRun(Math.min(wave, UI.sound.maxWaveStep) * UI.sound.rungsPerWave, run, UI.sound.runStepMs, wave > 0);
+    if (sound) playRun(Math.min(wave, UI.sound.maxWaveStep) * UI.sound.rungsPerWave, run, UI.sound.runStepMs, wave);
     play('eat');
     vibrate(wave > 0 || length >= 4 ? 'longChain' : 'chain');
   } else if (frame.kind === 'whirl') {

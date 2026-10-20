@@ -21,6 +21,7 @@ export const UI = {
   /** v0.6 changed scoring a lot, so its record starts fresh. */
   bestScoreKey: 'animal-feast:best:v0.6',
   soundKey: 'animal-feast:sound',
+  musicKey: 'animal-feast:music',
   /** Vibration patterns (ms on/off). */
   haptics: {
     step: [6],
@@ -61,6 +62,11 @@ export const UI = {
   },
   /** The reaction banner grows this much per extra wave. */
   waveTextGrow: 0.18,
+  /**
+   * Background music (music.ts): tempo, scheduler timing and voice levels. hotEnergy is the sea's
+   * energy at which the music is at full intensity.
+   */
+  music: { bpm: 96, tickMs: 25, lookAheadMs: 120, pad: 0.018, bass: 0.07, melody: 0.025, kick: 0.09, shaker: 0.02, hat: 0.03, hotEnergy: 1.2 },
   sound: { maxRunNotes: 6, runStepMs: 55, rungsPerWave: 3, maxWaveStep: 4 },
   /** Clock ticks in the last seconds. */
   warningTickMs: 5000,
