@@ -14,20 +14,47 @@ export const STRINGS = {
   tapToStart: 'Toca per començar',
   tutorial: {
     title: 'Com es juga',
-    goal: 'Completa la cadena tròfica!',
-    /** "L'orca es menja el tauró, que es menja la tonyina, …" from the biggest down. */
-    eats: (definites: readonly string[]) =>
-      `${capitalize(definites[0])} es menja ${definites.slice(1).join(', que es menja ')}.`,
+    stepOf: (n: number, total: number) => `${n} de ${total}`,
     yum: 'Ñam!',
-    points: (lengths: readonly number[], diagonal: boolean, reverse: boolean) => [
-      reverse
-        ? `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més gran al més petit o al revés${diagonal ? ', també en diagonal' : ''}.`
-        : `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més petit al més gran${diagonal ? ', també en diagonal' : ''}.`,
-      'Cada animal ha de ser just el següent de la cadena.',
-      'El més gran es menja tota la cadena i guanyes punts. Com més llarga, més punts!',
-    ],
+    next: 'Següent',
+    skip: 'Salta',
     go: 'A jugar!',
+    dontShow: 'No ho tornis a mostrar',
     again: 'Mira com es juga',
+    eatsPair: (eater: string, eaten: string) => `${capitalize(eater)} es menja ${eaten}`,
+    wildActs: (definite: string) => `fa de ${definite.replace(/^(el|la|l') ?/, '')}`,
+    wildCantEat: '✗ El pop no menja',
+    steps: {
+      chain: {
+        title: 'Qui es menja qui',
+        lines: [
+          'Cada animal es menja el que té just al costat: el més gran, el següent, i així fins al més petit.',
+          'Per guanyar punts, has d\'unir animals que es mengen l\'un a l\'altre, en aquest ordre.',
+        ],
+      },
+      trace: {
+        title: 'Uneix-los amb el dit',
+        lines: (lengths: readonly number[], diagonal: boolean, reverse: boolean) => [
+          `Llisca el dit per sobre de ${listOr(lengths)} animals que es toquin, seguint l'ordre${reverse ? ' (del gran al petit o del petit al gran)' : ''}.`,
+          diagonal ? 'Pots anar en diagonal i girar cap on vulguis: no cal anar recte.' : 'Pots girar cap on vulguis, però no en diagonal.',
+          'El més gran es menja tota la cadena. Com més llarga, més punts!',
+        ],
+      },
+      wild: {
+        title: 'El pop fa de comodí',
+        lines: (top: string) => [
+          'El pop pot fer de qualsevol animal dels que són menjats, també del més petit.',
+          `El que menja, en canvi, ha de ser un animal de veritat (${top}, per exemple), mai el pop.`,
+        ],
+      },
+      frenzy: {
+        title: 'Energia i frenesí',
+        lines: (chargers: readonly string[], bonusS: number) => [
+          `${capitalize(listAnd(chargers))} ${chargers.length > 1 ? 'es fan' : 'es fa'} més ${chargers.length > 1 ? 'forts' : 'fort'} cada cop que ${chargers.length > 1 ? 'mengen' : 'menja'}: ${chargers.length > 1 ? "se'ls omplen" : 'se li omplen'} els puntets grocs.`,
+          `Amb els puntets plens entra en frenesí: es menja tots els veïns més petits i guanyes ${bonusS} segons més.`,
+        ],
+      },
+    },
   },
   daily: {
     free: 'Partida lliure',

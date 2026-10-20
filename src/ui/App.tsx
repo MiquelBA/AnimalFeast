@@ -143,15 +143,18 @@ export function App() {
     else if (!daily.introSeen) setSheet('dailyIntro');
     else playDaily(false);
   };
-  // The first game starts with the walkthrough; it can be seen again from the help.
+  // The first game of each visit starts with the walkthrough, until the player ticks "don't show
+  // again"; it can be seen again from the help.
+  const [tutorialHidden, setTutorialHidden] = useState(() => loadFlag(UI.tutorialHiddenKey, false));
   const startGame = (which: 'free' | 'daily') => {
     pending.current = which;
-    if (!loadFlag(UI.tutorialKey, false)) setSheet('tutorial');
+    if (!tutorialHidden) setSheet('tutorial');
     else if (which === 'daily') openDaily();
     else playFree();
   };
-  const finishTutorial = () => {
-    saveFlag(UI.tutorialKey, true);
+  const finishTutorial = (hide: boolean) => {
+    saveFlag(UI.tutorialHiddenKey, hide);
+    setTutorialHidden(hide);
     if (g.phase !== 'start') closeSheet();
     else if (pending.current === 'daily') openDaily();
     else playFree();
@@ -291,7 +294,7 @@ export function App() {
       )}
       {sheet === 'feedback' && <FeedbackModal context={{ scenario: scenario.id, phase: g.phase, score: g.game.score }} onClose={closeSheet} />}
       {sheet === 'install' && <InstallModal onClose={closeSheet} />}
-      {sheet === 'tutorial' && <TutorialModal theme={theme} config={config} onDone={finishTutorial} />}
+      {sheet === 'tutorial' && <TutorialModal theme={theme} config={config} hidden={tutorialHidden} onDone={finishTutorial} />}
       {g.phase === 'start' && !sheet && (
         <StartScreen
           theme={theme}

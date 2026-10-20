@@ -7,9 +7,10 @@ export const UI = {
   hitRadius: 0.35,
   /** Countdown before each game: 3, 2, 1 one step apart, then "go" stays on screen goMs. */
   countdown: { steps: 3, stepMs: 750, goMs: 700 },
-  /** First-game walkthrough (Tutorial.tsx): cell size and the pace of the finger. */
-  tutorial: { cellPx: 62, startMs: 700, stepMs: 480, eatMs: 900, restMs: 600 },
-  tutorialKey: 'animal-feast:tutorial-seen',
+  /** How-to-play walkthrough (Tutorial.tsx): cell size, the pace of the finger, and of the chain's pairs. */
+  tutorial: { cellPx: 62, startMs: 700, stepMs: 480, eatMs: 900, restMs: 600, pairMs: 1400 },
+  /** Set when the player ticks "don't show again" on the walkthrough. */
+  tutorialHiddenKey: 'animal-feast:tutorial-hidden',
   /** Idle time before a possible chain glows. */
   hintDelayMs: 5000,
   /** Animation durations; no normal animation goes over maxAnimMs. */
