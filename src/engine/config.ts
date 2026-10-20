@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxMoves: 30,
   goldenChance: 0.03,
   goldenMultiplier: 2,
-  wildChance: 0.02,
+  wildChance: 0.05,
 };
 
 export type ConfigOverrides = Partial<GameConfig>;

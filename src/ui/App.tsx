@@ -1,7 +1,8 @@
 // Portrait game screen: HUD on top, the board in the middle, discreet controls at thumb height.
 import { useEffect, useRef, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
-import { DEFAULT_CONFIG } from '../engine/config';
+import { DEFAULT_CONFIG, makeConfig } from '../engine/config';
+import { VARIANTS } from '../engine/variants';
 import { minEnergyGain } from '../engine/score';
 import type { GameConfig, GameStats } from '../engine/types';
 import { DEFAULT_THEME, themeLevels, type Theme } from '../themes';
@@ -15,13 +16,17 @@ import { finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feed
 import { loadFlag, saveFlag } from './storage';
 
 const theme = DEFAULT_THEME;
-const debugEnabled = (() => {
+function urlParam(name: string): string | null {
   try {
-    return new URLSearchParams(window.location.search).get('debug') === '1';
+    return new URLSearchParams(window.location.search).get(name);
   } catch {
-    return false;
+    return null;
   }
-})();
+}
+const debugEnabled = urlParam('debug') === '1';
+/** ?variant=<key> plays a rule variant from the start (for testing on a phone); it doesn't count for the record. */
+const urlVariant = urlParam('variant');
+const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : DEFAULT_CONFIG;
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -32,7 +37,7 @@ export function App() {
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const soundRef = useRef(sound);
   useEffect(() => { soundRef.current = sound; }, [sound]);
-  const g = useGame(DEFAULT_CONFIG, {
+  const g = useGame(startConfig, {
     onFrame: (frame) => frameCue(frame, soundRef.current),
     onFinish: (newBest) => finishCue(newBest, soundRef.current),
   });
