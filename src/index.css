@@ -273,6 +273,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
   to { opacity: 0; scale: 1.05; }
 }
 
+/* Start screen: one tap to begin */
+.overlay.start-screen {
+  border: none;
+  color: var(--white);
+  font: inherit;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+  outline: none;
+}
+.start-mascot { width: 120px; height: 120px; animation: start-bob 1.6s ease-in-out infinite; }
+.start-mascot svg { width: 100%; height: 100%; }
+.start-title { font-size: 34px; font-weight: 900; letter-spacing: 0.12em; text-shadow: 0 3px 0 var(--ink); }
+.start-tap {
+  margin-top: 10px;
+  padding: 14px 28px;
+  border-radius: 18px;
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: 0 4px 0 #C99A10;
+  animation: start-pulse 1.1s ease-in-out infinite;
+}
+@keyframes start-bob { 50% { translate: 0 -8px; rotate: -4deg; } }
+@keyframes start-pulse { 50% { scale: 1.07; } }
+
 /* Countdown before each game: big numbers that pop in the middle of the screen. */
 .countdown {
   position: fixed;

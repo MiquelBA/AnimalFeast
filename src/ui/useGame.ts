@@ -8,8 +8,11 @@ import { buildFrames, tilesOf, type Effect, type Frame, type FrameKind } from '.
 import { loadBest, saveBest } from './storage';
 import { UI } from './uiConfig';
 
-/** 'ready' is the 3, 2, 1 countdown before the clock starts. */
-export type Phase = 'ready' | 'playing' | 'paused' | 'over';
+/**
+ * 'start' waits for the first tap (phones only allow sound after one); 'ready' is the 3, 2, 1
+ * countdown before the clock starts.
+ */
+export type Phase = 'start' | 'ready' | 'playing' | 'paused' | 'over';
 
 /** What the board draws right now: a frame of a move's animation, or the idle board. */
 export interface Display extends Omit<Frame, 'kind'> {
@@ -65,8 +68,8 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
   const gameRef = useRef(game);
   const config = game.config;
   const [display, setDisplay] = useState<Display>(() => idleDisplay(game.board, 0));
-  const [phase, setPhaseState] = useState<Phase>('ready');
-  const phaseRef = useRef<Phase>('ready');
+  const [phase, setPhaseState] = useState<Phase>('start');
+  const phaseRef = useRef<Phase>('start');
   const [animating, setAnimatingState] = useState(false);
   const animatingRef = useRef(false);
   /** True during a move's last fall: the final board is known, so a new trace may start. */
@@ -134,6 +137,8 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     pausedInCountdown.current = now === 'ready';
     setPhase('paused');
   }, [setPhase]);
+  /** The first tap: starts the countdown. */
+  const begin = useCallback(() => { if (phaseRef.current === 'start') setPhase('ready'); }, [setPhase]);
   const resume = useCallback(() => {
     if (phaseRef.current === 'paused') setPhase(pausedInCountdown.current ? 'ready' : 'playing');
   }, [setPhase]);
@@ -264,6 +269,6 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
 
   return {
     game, config, display, phase, countdown, animating, settling, clockMs, best, records, newBest, floaters, hint,
-    play, pause, resume, restart, noteActivity,
+    play, begin, pause, resume, restart, noteActivity,
   };
 }

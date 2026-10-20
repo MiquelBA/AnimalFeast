@@ -181,6 +181,7 @@ export function App() {
 
       {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} />}
       {sheet === 'debug' && <DebugPanel game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
+      {g.phase === 'start' && !sheet && <StartScreen theme={theme} tierCount={config.tiers.length} onStart={g.begin} />}
       {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
           <div className="sheet">
@@ -312,6 +313,18 @@ function Confetti() {
         />
       ))}
     </div>
+  );
+}
+
+/** The first tap starts the game (and, on phones, unlocks sound for the countdown). */
+function StartScreen({ theme, tierCount, onStart }: { theme: Theme; tierCount: number; onStart: () => void }) {
+  const top = themeLevels(theme, tierCount)[tierCount - 1];
+  return (
+    <button className="overlay start-screen" onClick={() => { unlockAudio(); onStart(); }} autoFocus>
+      <span className="start-mascot" aria-hidden="true">{renderSprite(top.sprite, { color: top.color })}</span>
+      <span className="start-title">{STRINGS.title}</span>
+      <span className="start-tap">{STRINGS.tapToStart}</span>
+    </button>
   );
 }
 
