@@ -29,6 +29,60 @@ export const STRINGS = {
     go: 'A jugar!',
     again: 'Mira com es juga',
   },
+  daily: {
+    free: 'Partida lliure',
+    freeSub: 'Quan vulguis, per batre el teu rècord',
+    button: "🗓 Repte d'avui",
+    sub: 'El mateix tauler per a tothom · 1 intent',
+    doneSub: (time: string) => `Ja l'has jugat · el proper, d'aquí a ${time}`,
+    streak: (n: number) => `🔥 Ratxa de ${n} ${n === 1 ? 'dia' : 'dies'}`,
+    title: "Repte d'avui",
+    /** The challenge in a few lines: on its intro card and in the help. */
+    rules: [
+      'Cada dia hi ha un tauler nou, i és el mateix per a tothom: tots jugueu amb els mateixos animals.',
+      'Només compta el primer intent. Després el pots tornar a jugar per practicar, però ja no puntua.',
+      'Té una classificació pròpia, només amb les partides del dia.',
+      "A mitjanit (hora d'aquí) arriba un repte nou.",
+      'Juga cada dia per fer créixer la teva ratxa 🔥.',
+    ],
+    begin: 'Comença el repte',
+    later: 'Ara no',
+    doneTitle: "Ja has jugat el repte d'avui",
+    doneScore: (score: string) => `Has fet ${score} punts.`,
+    comeBack: (time: string) => `Torna demà! El proper repte arriba d'aquí a ${time}.`,
+    practice: 'Practica-hi (no puntua)',
+    seeRanking: "Mira la classificació d'avui",
+    hud: (date: string) => `REPTE ${date}`,
+    practiceHud: 'PRÀCTICA',
+    officialNote: (date: string) => `Repte del ${date} · el teu intent oficial`,
+    practiceNote: 'Partida de pràctica: no puntua.',
+    playFree: 'Juga una partida lliure',
+    playDaily: "🗓 Juga el repte d'avui",
+    practiceAgain: "Torna'l a jugar (pràctica)",
+    rank: (n: number, total: number) => `Ets el ${ordinal(n)} de ${total}`,
+    tabGeneral: 'General',
+    tabToday: 'Avui',
+    time: (ms: number) => {
+      const min = Math.ceil(ms / 60_000);
+      const h = Math.floor(min / 60);
+      return h ? `${h} h ${min % 60} min` : `${min} min`;
+    },
+    /** Spoiler-free result to share: date, score, place, and the big moments. */
+    shareText: (o: { date: string; score: string; rank: number | null; total: number | null; frenzies: number; whirlpools: number }) => [
+      `🐋 Orca Lunch · Repte ${o.date}`,
+      o.rank && o.total ? `${o.score} punts · ${ordinal(o.rank)} de ${o.total}` : `${o.score} punts`,
+      [
+        o.frenzies ? `${'🔥'.repeat(Math.min(o.frenzies, 5))} ${o.frenzies} ${o.frenzies === 1 ? 'frenesí' : 'frenesís'}` : '',
+        o.whirlpools ? `🌀 ${o.whirlpools} ${o.whirlpools === 1 ? 'remolí' : 'remolins'}` : '',
+      ].filter(Boolean).join(' · '),
+    ].filter(Boolean).join('\n'),
+  },
+  rating: {
+    ask: "T'ha agradat?",
+    up: "M'ha agradat",
+    down: "No m'ha agradat",
+    thanks: 'Gràcies!',
+  },
   share: {
     button: 'Repta un amic',
     text: (score: string) => `He fet ${score} punts a Orca Lunch 🐋 Em superes?`,
@@ -141,6 +195,11 @@ export type StringKey = keyof typeof STRINGS;
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Catalan ordinals: 1r, 2n, 3r, 4t, 5è… */
+function ordinal(n: number): string {
+  return `${n}${({ 1: 'r', 2: 'n', 3: 'r', 4: 't' } as Record<number, string>)[n] ?? 'è'}`;
 }
 
 function listOr(items: readonly (string | number)[]): string {

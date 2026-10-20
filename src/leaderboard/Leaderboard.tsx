@@ -2,7 +2,7 @@
 // opened from the trophy button (no score) it only shows the top players.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { STRINGS } from '../ui/strings';
-import { fetchRank, fetchTop, RejectedError, submitScore, type RankedScore } from './api';
+import { fetchCount, fetchRank, fetchTop, RejectedError, submitScore, type RankedScore } from './api';
 import { LEADERBOARD } from './config';
 import { nameIsClean } from './names';
 import { cleanName, loadPlayer, savePlayer, type Player } from './player';
@@ -10,7 +10,13 @@ import { track } from './track';
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
-export function Leaderboard({ ranking, score }: { ranking: string; score?: number }) {
+/**
+ * `daily`: the day's challenge, where the place reads "7th of 23" and is reported with `onPlaced`
+ * (for the share text).
+ */
+export function Leaderboard({ ranking, score, daily = false, onPlaced }: {
+  ranking: string; score?: number; daily?: boolean; onPlaced?: (rank: number, total: number) => void;
+}) {
   const T = STRINGS.leaderboard;
   const [player, setPlayer] = useState<Player | null>(loadPlayer);
   const [editing, setEditing] = useState(false);
@@ -18,6 +24,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
   const [status, setStatus] = useState<Status>('idle');
   const [top, setTop] = useState<readonly RankedScore[]>([]);
   const [rank, setRank] = useState<number | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [nameRefused, setNameRefused] = useState(false);
   /** The server kept this score out (too many in a row, or a refused name). */
   const [scoreRefused, setScoreRefused] = useState(false);
@@ -36,9 +43,15 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
           throw error;
         });
       }
-      const [list, place] = await Promise.all([fetchTop(ranking, LEADERBOARD.topCount), score && score > 0 ? fetchRank(ranking, score) : null]);
+      const [list, place, count] = await Promise.all([
+        fetchTop(ranking, LEADERBOARD.topCount),
+        score && score > 0 ? fetchRank(ranking, score) : null,
+        daily ? fetchCount(ranking) : null,
+      ]);
       setTop(list);
       setRank(place);
+      setTotal(count);
+      if (place !== null && count !== null && sent.current) onPlaced?.(place, Math.max(place, count));
       setStatus('done');
     } catch {
       setStatus('error');
@@ -97,7 +110,9 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
         </p>
       )}
       {scoreRefused && <p className="lb-note">{T.refused}</p>}
-      {status === 'done' && rank !== null && player && sent.current && !scoreRefused && <p className="lb-rank">{T.rank(rank)}</p>}
+      {status === 'done' && rank !== null && player && sent.current && !scoreRefused && (
+        <p className="lb-rank">{daily && total !== null ? STRINGS.daily.rank(rank, Math.max(rank, total)) : T.rank(rank)}</p>
+      )}
       {status === 'done' && (top.length ? (
         <ol className="lb-list">
           {top.map((row, i) => (

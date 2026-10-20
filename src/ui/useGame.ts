@@ -32,6 +32,8 @@ export interface NewGameOptions {
   readonly config?: GameConfig;
   /** Starting board (debug); the config's board size is ignored. */
   readonly board?: Board;
+  /** Whether the game counts for the record; by default only games with the default rules do. */
+  readonly records?: boolean;
 }
 
 function idleDisplay(board: Board, frameId: number): Display {
@@ -248,7 +250,7 @@ export function useGame(scenario: Scenario, initialConfig: GameConfig = scenario
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
     const config = options.config ?? gameRef.current.config;
-    recordsBest.current = config === scenario.config && !options.board;
+    recordsBest.current = options.records ?? (config === scenario.config && !options.board);
     setRecords(recordsBest.current);
     const fresh = createGame({ seed: options.seed ?? newSeed(), config, board: options.board });
     gameRef.current = fresh;

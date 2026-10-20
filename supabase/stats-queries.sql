@@ -33,3 +33,15 @@ from first f group by 1 order by 1 desc;
 
 -- Latest feedback.
 select created_at, message, meta from feedback order by created_at desc limit 50;
+
+-- 👍👎 at the end of a game, per day.
+select date_trunc('day', created_at)::date as day,
+       count(*) filter (where meta->>'value' = 'up') as likes,
+       count(*) filter (where meta->>'value' = 'down') as dislikes
+from public.events where kind = 'rating'
+group by 1 order by 1 desc;
+
+-- Daily challenge: players and best score per day.
+select ranking, count(*) as players, max(score) as best
+from public.leaderboard where ranking ~ '-d[0-9]{8}$'
+group by 1 order by 1 desc;

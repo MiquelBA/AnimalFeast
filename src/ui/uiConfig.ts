@@ -24,6 +24,8 @@ export const UI = {
   /** Combo text by combo count (index = count − 2, last one repeats). */
   comboTextKeys: ['comboGreat', 'comboAmazing', 'comboFeast'] as const,
   soundKey: 'animal-feast:sound',
+  /** The daily challenge: where its day changes, and where the phone keeps its attempt and streak. */
+  daily: { timeZone: 'Europe/Madrid', key: 'animal-feast:daily', tickMs: 10_000 },
   /** Vibration patterns (ms on/off). */
   haptics: {
     step: [12],

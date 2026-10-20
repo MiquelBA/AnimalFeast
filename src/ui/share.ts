@@ -7,8 +7,12 @@ export function gameUrl(): string {
 }
 
 /** Shares a score; resolves true if something was shared (or opened). */
-export async function shareScore(score: number): Promise<boolean> {
-  const text = STRINGS.share.text(score.toLocaleString('ca'));
+export function shareScore(score: number): Promise<boolean> {
+  return shareText(STRINGS.share.text(score.toLocaleString('ca')));
+}
+
+/** Shares a text with the game's address after it. */
+export async function shareText(text: string): Promise<boolean> {
   const url = gameUrl();
   if (navigator.share) {
     try {
@@ -19,6 +23,6 @@ export async function shareScore(score: number): Promise<boolean> {
       if (error instanceof DOMException && error.name === 'AbortError') return false;
     }
   }
-  window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank', 'noopener');
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank', 'noopener');
   return true;
 }

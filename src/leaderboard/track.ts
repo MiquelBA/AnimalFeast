@@ -4,7 +4,7 @@ import { insertRow } from './api';
 import { leaderboardEnabled } from './config';
 import { deviceId } from './device';
 
-export type TrackKind = 'visit' | 'game_start' | 'game_end' | 'share' | 'install' | 'ranking_view' | 'feedback';
+export type TrackKind = 'visit' | 'game_start' | 'game_end' | 'share' | 'install' | 'ranking_view' | 'feedback' | 'rating';
 
 export function track(kind: TrackKind, score?: number, meta: Record<string, string | number | boolean> = {}): void {
   if (!leaderboardEnabled()) return;

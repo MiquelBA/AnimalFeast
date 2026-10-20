@@ -57,6 +57,14 @@ export async function fetchRank(ranking: string, score: number, fetcher?: Fetch)
   return (Number.isFinite(total) ? total : 0) + 1;
 }
 
+/** How many players are in a ranking. */
+export async function fetchCount(ranking: string, fetcher?: Fetch): Promise<number> {
+  const query = `leaderboard?select=player_id&ranking=eq.${encodeURIComponent(ranking)}`;
+  const response = await request(query, { method: 'HEAD', headers: { Prefer: 'count=exact' } }, fetcher);
+  const total = Number(response.headers.get('Content-Range')?.split('/')[1]);
+  return Number.isFinite(total) ? total : 0;
+}
+
 /** Adds a row the game can't read back (stats, feedback). `keepalive` lets it finish as the page closes. */
 export async function insertRow(table: 'events' | 'feedback', row: Record<string, unknown>, fetcher?: Fetch): Promise<void> {
   await request(table, { method: 'POST', keepalive: true, headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) }, fetcher);

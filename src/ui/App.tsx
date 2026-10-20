@@ -9,7 +9,8 @@ import { Leaderboard } from '../leaderboard/Leaderboard';
 import { leaderboardEnabled } from '../leaderboard/config';
 import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
-import { shareScore } from './share';
+import { shareScore, shareText } from './share';
+import { currentStreak, dailyDate, dailyRanking, dailySeed, finishOfficial, loadDaily, markIntroSeen, msUntilNext, playedToday, shortDate, startOfficial } from './daily';
 import { TutorialModal } from './Tutorial';
 import { scenarioById } from '../scenarios';
 import { themeLevels, type Theme } from '../themes';
@@ -38,7 +39,9 @@ const theme = scenario.theme;
 const urlVariant = urlParam('variant');
 const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : scenario.config;
 
-type Sheet = 'help' | 'debug' | 'ranking' | 'feedback' | 'install' | 'tutorial';
+type Sheet = 'help' | 'debug' | 'ranking' | 'feedback' | 'install' | 'tutorial' | 'dailyIntro' | 'dailyDone';
+/** A free game, today's official challenge, or the challenge replayed as practice. */
+type Mode = 'free' | 'daily' | 'practice';
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -49,18 +52,23 @@ export function App() {
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const soundRef = useRef(sound);
   useEffect(() => { soundRef.current = sound; }, [sound]);
+  const [mode, setMode] = useState<Mode>('free');
+  /** The challenge's day, fixed when its game starts (a game that ends after midnight keeps it). */
+  const [day, setDay] = useState(dailyDate);
+  const [daily, setDaily] = useState(loadDaily);
   const g = useGame(scenario, startConfig, {
     onFrame: (frame) => frameCue(frame, soundRef.current),
     onFinish: (newBest, state) => {
       finishCue(newBest, soundRef.current);
+      if (mode === 'daily') setDaily((d) => finishOfficial(d, day, state.score));
       track('game_end', state.score, {
-        scenario: scenario.id, ranked: g.records, chains: state.chains, frenzies: state.frenzies,
+        scenario: scenario.id, mode, ranked: g.records, chains: state.chains, frenzies: state.frenzies,
         whirlpools: state.whirlpools, bestMove: state.bestMove, moves: state.moves,
       });
     },
     onCountdown: (count) => {
       countdownCue(count, soundRef.current);
-      if (count === 0) track('game_start', undefined, { scenario: scenario.id, ranked: g.records });
+      if (count === 0) track('game_start', undefined, { scenario: scenario.id, mode, ranked: g.records });
     },
   });
   const config = g.config;
@@ -109,14 +117,44 @@ export function App() {
     g.pause();
     setSheet(which);
   };
+  /** What the player chose on the start screen, kept while the walkthrough or the challenge's intro shows. */
+  const pending = useRef<'free' | 'daily'>('free');
+  const playFree = () => {
+    setSheet(null);
+    setMode('free');
+    if (g.phase === 'start') g.begin();
+    else g.restart({ config: startConfig });
+  };
+  /** Today's challenge: the official attempt if it's still there, practice otherwise. */
+  const playDaily = (asPractice: boolean) => {
+    const today = dailyDate();
+    const official = !asPractice && !playedToday(daily, today);
+    setSheet(null);
+    setDay(today);
+    setMode(official ? 'daily' : 'practice');
+    if (official) setDaily((d) => startOfficial(d, today));
+    g.restart({ seed: dailySeed(scenario.id, today), config: scenario.config, records: false });
+  };
+  /** The daily button: the first time it explains the challenge; once played, it says when the next one comes. */
+  const openDaily = () => {
+    const today = dailyDate();
+    setDay(today);
+    if (playedToday(daily, today)) setSheet('dailyDone');
+    else if (!daily.introSeen) setSheet('dailyIntro');
+    else playDaily(false);
+  };
   // The first game starts with the walkthrough; it can be seen again from the help.
-  const startGame = () => {
-    if (loadFlag(UI.tutorialKey, false)) g.begin();
-    else setSheet('tutorial');
+  const startGame = (which: 'free' | 'daily') => {
+    pending.current = which;
+    if (!loadFlag(UI.tutorialKey, false)) setSheet('tutorial');
+    else if (which === 'daily') openDaily();
+    else playFree();
   };
   const finishTutorial = () => {
     saveFlag(UI.tutorialKey, true);
-    if (g.phase === 'start') { setSheet(null); g.begin(); } else closeSheet();
+    if (g.phase !== 'start') closeSheet();
+    else if (pending.current === 'daily') openDaily();
+    else playFree();
   };
   const closeSheet = () => {
     setSheet(null);
@@ -125,6 +163,7 @@ export function App() {
   };
   const startDebugGame = (options: NewGameOptions, setup: DebugSetup) => {
     setDebugSetup(setup);
+    setMode('free');
     setSheet(null);
     pausedForSheet.current = false;
     g.restart(options);
@@ -149,7 +188,7 @@ export function App() {
         <button className={`sound-btn${sound ? '' : ' off'}`} onClick={toggleSound} aria-label={sound ? STRINGS.soundOff : STRINGS.soundOn} aria-pressed={sound}>
           <SpeakerIcon on={sound} />
         </button>
-        <h1 className="title">{STRINGS.title}</h1>
+        <h1 className="title">{mode === 'daily' ? STRINGS.daily.hud(shortDate(day)) : mode === 'practice' ? STRINGS.daily.practiceHud : STRINGS.title}</h1>
         <div className="hud-row">
           <div className="stat">
             <span className="stat-label">{STRINGS.score}</span>
@@ -206,17 +245,50 @@ export function App() {
         </button>
       </footer>
 
+      {/* Under the sheets, so the ranking or the challenge's cards can open over it. */}
+      {g.phase === 'over' && (
+        <GameOver
+          title={byMoves ? STRINGS.gameOverMoves : STRINGS.gameOver}
+          stats={g.game}
+          best={g.best}
+          newBest={g.newBest}
+          ranking={!leaderboardEnabled() ? null : mode === 'daily' ? dailyRanking(scenario.rankingId, day) : g.records ? scenario.rankingId : null}
+          mode={mode}
+          day={day}
+          streak={currentStreak(daily, dailyDate())}
+          theme={theme}
+          tierCount={config.tiers.length}
+          onRestart={() => { setDebugSetup((d) => ({ variant: d.variant })); if (mode === 'free') g.restart(); else playFree(); }}
+          onDaily={() => (mode === 'free' ? openDaily() : playDaily(true))}
+        />
+      )}
       {sheet === 'help' && (
         <HelpModal
           theme={theme}
           config={config}
           onClose={closeSheet}
           onTutorial={() => setSheet('tutorial')}
+          showDaily
           onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
         />
       )}
       {sheet === 'debug' && <DebugPanel scenario={scenario} game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
-      {sheet === 'ranking' && <RankingModal ranking={scenario.rankingId} onClose={closeSheet} />}
+      {sheet === 'ranking' && <RankingModal ranking={scenario.rankingId} today={dailyRanking(scenario.rankingId, dailyDate())} startToday={mode !== 'free'} onClose={closeSheet} />}
+      {sheet === 'dailyIntro' && (
+        <DailyIntro
+          onBegin={() => { setDaily((d) => markIntroSeen(d)); playDaily(false); }}
+          onClose={() => { setDaily((d) => markIntroSeen(d)); closeSheet(); }}
+        />
+      )}
+      {sheet === 'dailyDone' && (
+        <DailyDone
+          score={daily.score}
+          streak={currentStreak(daily, dailyDate())}
+          onPractice={() => playDaily(true)}
+          onRanking={leaderboardEnabled() ? () => setSheet('ranking') : undefined}
+          onClose={closeSheet}
+        />
+      )}
       {sheet === 'feedback' && <FeedbackModal context={{ scenario: scenario.id, phase: g.phase, score: g.game.score }} onClose={closeSheet} />}
       {sheet === 'install' && <InstallModal onClose={closeSheet} />}
       {sheet === 'tutorial' && <TutorialModal theme={theme} config={config} onDone={finishTutorial} />}
@@ -224,7 +296,10 @@ export function App() {
         <StartScreen
           theme={theme}
           tierCount={config.tiers.length}
-          onStart={startGame}
+          onStart={() => startGame('free')}
+          onDaily={() => startGame('daily')}
+          dailyPlayed={playedToday(daily, dailyDate())}
+          streak={currentStreak(daily, dailyDate())}
           onRanking={leaderboardEnabled() ? () => openSheet('ranking') : undefined}
           onFeedback={leaderboardEnabled() ? () => openSheet('feedback') : undefined}
           onInstall={install ? () => void offerInstall() : undefined}
@@ -238,18 +313,6 @@ export function App() {
             <button className="primary-btn" onClick={g.resume}>{STRINGS.resume}</button>
           </div>
         </div>
-      )}
-      {g.phase === 'over' && (
-        <GameOver
-          title={byMoves ? STRINGS.gameOverMoves : STRINGS.gameOver}
-          stats={g.game}
-          best={g.best}
-          newBest={g.newBest}
-          ranking={g.records && leaderboardEnabled() ? scenario.rankingId : null}
-          theme={theme}
-          tierCount={config.tiers.length}
-          onRestart={() => { setDebugSetup((d) => ({ variant: d.variant })); g.restart(); }}
-        />
       )}
     </div>
   );
@@ -287,7 +350,7 @@ function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCoun
   );
 }
 
-function HelpModal({ theme, config, onClose, onTutorial, onFeedback }: { theme: Theme; config: GameConfig; onClose: () => void; onTutorial: () => void; onFeedback?: () => void }) {
+function HelpModal({ theme, config, onClose, onTutorial, onFeedback, showDaily = false }: { theme: Theme; config: GameConfig; onClose: () => void; onTutorial: () => void; onFeedback?: () => void; showDaily?: boolean }) {
   const tierCount = config.tiers.length;
   const levels = themeLevels(theme, tierCount);
   const rules = STRINGS.helpRules({
@@ -309,6 +372,12 @@ function HelpModal({ theme, config, onClose, onTutorial, onFeedback }: { theme: 
         <ul className="rules">
           {rules.map((r) => <li key={r}>{r}</li>)}
         </ul>
+        {showDaily && (
+          <>
+            <h3 className="help-subtitle">{STRINGS.daily.button}</h3>
+            <ul className="rules">{STRINGS.daily.rules.map((r) => <li key={r}>{r}</li>)}</ul>
+          </>
+        )}
         <p className="help-links">
           <button type="button" className="link-btn" onClick={onTutorial}>👆 {STRINGS.tutorial.again}</button>
           {onFeedback && <button type="button" className="link-btn" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button>}
@@ -359,38 +428,99 @@ function Confetti() {
 }
 
 /** The first tap starts the game (and, on phones, unlocks sound for the countdown). */
-function StartScreen({ theme, tierCount, onStart, onRanking, onFeedback, onInstall }: {
-  theme: Theme; tierCount: number; onStart: () => void; onRanking?: () => void; onFeedback?: () => void; onInstall?: () => void;
+function StartScreen({ theme, tierCount, onStart, onDaily, dailyPlayed, streak, onRanking, onFeedback, onInstall }: {
+  theme: Theme; tierCount: number; onStart: () => void; onDaily: () => void; dailyPlayed: boolean; streak: number;
+  onRanking?: () => void; onFeedback?: () => void; onInstall?: () => void;
 }) {
   const top = themeLevels(theme, tierCount)[tierCount - 1];
+  const untilNext = useUntilNext();
   const start = () => { unlockAudio(); onStart(); };
+  const daily = () => { unlockAudio(); onDaily(); };
   return (
-    <div className="overlay start-screen" onClick={start}>
+    <div className="overlay start-screen">
       <span className="start-mascot" aria-hidden="true">{renderSprite(top.sprite, { color: top.color })}</span>
       <span className="start-title">{STRINGS.title}</span>
-      <button className="start-tap" onClick={(e) => { e.stopPropagation(); start(); }} autoFocus>{STRINGS.tapToStart}</button>
+      <button className="start-tap" onClick={start} autoFocus>
+        {STRINGS.daily.free}
+        <small>{STRINGS.daily.freeSub}</small>
+      </button>
+      <button className={`start-daily${dailyPlayed ? ' done' : ''}`} onClick={daily}>
+        {STRINGS.daily.button}{dailyPlayed && ' ✓'}
+        <small>{dailyPlayed ? STRINGS.daily.doneSub(STRINGS.daily.time(untilNext)) : STRINGS.daily.sub}</small>
+      </button>
+      {streak > 0 && <span className="start-streak">{STRINGS.daily.streak(streak)}</span>}
       {onRanking && (
-        <button className="start-ranking" onClick={(e) => { e.stopPropagation(); onRanking(); }}>
+        <button className="start-ranking" onClick={onRanking}>
           <TrophyIcon /> {STRINGS.leaderboard.title}
         </button>
       )}
       {(onInstall || onFeedback) && (
         <span className="start-links">
-          {onInstall && <button className="link-btn" onClick={(e) => { e.stopPropagation(); onInstall(); }}>📲 {STRINGS.install.button}</button>}
-          {onFeedback && <button className="link-btn" onClick={(e) => { e.stopPropagation(); onFeedback(); }}>💬 {STRINGS.feedback.button}</button>}
+          {onInstall && <button className="link-btn" onClick={onInstall}>📲 {STRINGS.install.button}</button>}
+          {onFeedback && <button className="link-btn" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button>}
         </span>
       )}
     </div>
   );
 }
 
-/** The shared ranking, any time (top bar trophy or start screen). */
-function RankingModal({ ranking, onClose }: { ranking: string; onClose: () => void }) {
+/** Time left until the next challenge, ticking every few seconds. */
+function useUntilNext(): number {
+  const [ms, setMs] = useState(() => msUntilNext());
+  useEffect(() => {
+    const id = window.setInterval(() => setMs(msUntilNext()), UI.daily.tickMs);
+    return () => window.clearInterval(id);
+  }, []);
+  return ms;
+}
+
+/** The first time the daily button is tapped: what the challenge is, before its only attempt. */
+function DailyIntro({ onBegin, onClose }: { onBegin: () => void; onClose: () => void }) {
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.daily.title}>
+        <h2>{STRINGS.daily.button}</h2>
+        <ul className="rules">{STRINGS.daily.rules.map((r) => <li key={r}>{r}</li>)}</ul>
+        <button className="primary-btn" onClick={onBegin} autoFocus>{STRINGS.daily.begin}</button>
+        <button type="button" className="link-btn sheet-close" onClick={onClose}>{STRINGS.daily.later}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Today's challenge is already played: the result, the streak and when the next one comes. */
+function DailyDone({ score, streak, onPractice, onRanking, onClose }: {
+  score: number | null; streak: number; onPractice: () => void; onRanking?: () => void; onClose: () => void;
+}) {
+  const T = STRINGS.daily;
+  const untilNext = useUntilNext();
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={T.doneTitle}>
+        <h2>{T.doneTitle}</h2>
+        {score !== null && <p className="daily-score">{T.doneScore(score.toLocaleString('ca'))}</p>}
+        {streak > 0 && <p className="daily-streak">{T.streak(streak)}</p>}
+        <p>{T.comeBack(T.time(untilNext))}</p>
+        {onRanking && <button className="share-btn" onClick={onRanking}><TrophyIcon /> {T.seeRanking}</button>}
+        <button className="primary-btn" onClick={onPractice}>{T.practice}</button>
+        <button type="button" className="link-btn sheet-close" onClick={onClose}>{STRINGS.close}</button>
+      </div>
+    </div>
+  );
+}
+
+/** The shared ranking, any time (top bar trophy or start screen): the general one or today's challenge. */
+function RankingModal({ ranking, today, startToday, onClose }: { ranking: string; today: string; startToday: boolean; onClose: () => void }) {
+  const [showToday, setShowToday] = useState(startToday);
   return (
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.leaderboard.title}>
         <h2>{STRINGS.leaderboard.title}</h2>
-        <Leaderboard ranking={ranking} />
+        <div className="tabs" role="tablist">
+          <button role="tab" aria-selected={!showToday} className={showToday ? '' : 'on'} onClick={() => setShowToday(false)}>{STRINGS.daily.tabGeneral}</button>
+          <button role="tab" aria-selected={showToday} className={showToday ? 'on' : ''} onClick={() => setShowToday(true)}>🗓 {STRINGS.daily.tabToday}</button>
+        </div>
+        <Leaderboard key={showToday ? today : ranking} ranking={showToday ? today : ranking} />
         <button className="primary-btn" onClick={onClose} autoFocus>{STRINGS.close}</button>
       </div>
     </div>
@@ -463,10 +593,19 @@ function TrophyIcon() {
   );
 }
 
-function GameOver({ title, stats, best, newBest, ranking, theme, tierCount, onRestart }: {
-  title: string; stats: GameStats; best: number; newBest: boolean; ranking: string | null; theme: Theme; tierCount: number; onRestart: () => void;
+function GameOver({ title, stats, best, newBest, ranking, mode, day, streak, theme, tierCount, onRestart, onDaily }: {
+  title: string; stats: GameStats; best: number; newBest: boolean; ranking: string | null; mode: Mode; day: string; streak: number;
+  theme: Theme; tierCount: number; onRestart: () => void; onDaily: () => void;
 }) {
   const score = useCountUp(stats.score, UI.countUpMs);
+  const T = STRINGS.daily;
+  const [place, setPlace] = useState<{ rank: number; total: number } | null>(null);
+  const share = () => {
+    const text = mode === 'daily'
+      ? T.shareText({ date: shortDate(day), score: stats.score.toLocaleString('ca'), rank: place?.rank ?? null, total: place?.total ?? null, frenzies: stats.frenzies, whirlpools: stats.whirlpools })
+      : null;
+    void (text ? shareText(text) : shareScore(stats.score)).then((shared) => shared && track('share', stats.score, { mode }));
+  };
   const top = themeLevels(theme, tierCount)[tierCount - 1];
   const rows: [string, number][] = [
     [STRINGS.statBest, best],
@@ -483,22 +622,52 @@ function GameOver({ title, stats, best, newBest, ranking, theme, tierCount, onRe
       <div className="sheet game-over" role="dialog" aria-modal="true" aria-label={title}>
         <div className="mascot" aria-hidden="true">{renderSprite(top.sprite, { color: top.color })}</div>
         <h2>{title}</h2>
+        {mode === 'daily' && <p className="daily-note">{T.officialNote(shortDate(day))}</p>}
+        {mode === 'practice' && <p className="daily-note">{T.practiceNote}</p>}
         <div className="final-label">{STRINGS.statScore}</div>
         <div className="final-score" aria-label={String(stats.score)}>{score}</div>
         {newBest && <div className="new-best">{STRINGS.newBest}</div>}
-        {ranking && <Leaderboard ranking={ranking} score={stats.score} />}
+        {mode === 'daily' && streak > 0 && <div className="daily-streak">{T.streak(streak)}</div>}
+        {ranking && (
+          <Leaderboard ranking={ranking} score={stats.score} daily={mode === 'daily'} onPlaced={(rank, total) => setPlace({ rank, total })} />
+        )}
         <dl className="final-stats">
           {rows.map(([label, value], i) => (
             <div key={label} style={{ animationDelay: `${120 + i * 60}ms` }}><dt>{label}</dt><dd>{value}</dd></div>
           ))}
         </dl>
-        {stats.score > 0 && (
-          <button className="share-btn" onClick={() => void shareScore(stats.score).then((shared) => shared && track('share', stats.score))}>
+        <Rating score={stats.score} mode={mode} />
+        {stats.score > 0 && mode !== 'practice' && (
+          <button className="share-btn" onClick={share}>
             <ShareIcon /> {STRINGS.share.button}
           </button>
         )}
-        <button className="primary-btn" onClick={onRestart} autoFocus>{STRINGS.playAgain}</button>
+        <button className="primary-btn" onClick={onRestart} autoFocus>{mode === 'free' ? STRINGS.playAgain : T.playFree}</button>
+        <button type="button" className="link-btn sheet-close" onClick={onDaily}>{mode === 'free' ? T.playDaily : T.practiceAgain}</button>
       </div>
+    </div>
+  );
+}
+
+/** One tap at the end of a game: did you like it? Stored with the anonymous stats. */
+function Rating({ score, mode }: { score: number; mode: Mode }) {
+  const T = STRINGS.rating;
+  const [answer, setAnswer] = useState<'up' | 'down' | null>(null);
+  if (!leaderboardEnabled()) return null;
+  const rate = (value: 'up' | 'down') => {
+    if (answer) return;
+    setAnswer(value);
+    track('rating', score, { value, mode });
+  };
+  return (
+    <div className="rating">
+      {answer ? <span>{T.thanks}</span> : (
+        <>
+          <span>{T.ask}</span>
+          <button type="button" onClick={() => rate('up')} aria-label={T.up}>👍</button>
+          <button type="button" onClick={() => rate('down')} aria-label={T.down}>👎</button>
+        </>
+      )}
     </div>
   );
 }

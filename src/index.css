@@ -622,3 +622,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .tile.whirl .tile-art { animation: none; }
   .clock.warning, .tile.hint .tile-inner, .tile.near .tile-inner::before, .tile.golden .tile-inner::after { animation: none; }
 }
+
+/* Daily challenge */
+.start-tap, .start-daily { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 260px; }
+.start-tap small, .start-daily small { font-size: 13px; font-weight: 700; opacity: 0.8; }
+.start-daily {
+  padding: 12px 24px;
+  border: 2px solid var(--white);
+  border-radius: 18px;
+  background: var(--green);
+  color: var(--ink);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(6, 42, 74, 0.5);
+}
+.start-daily.done { background: rgba(6, 42, 74, 0.55); color: var(--white); }
+.start-streak, .daily-streak { font-size: 16px; font-weight: 900; color: var(--gold); text-align: center; }
+.sheet .daily-note { margin: -4px 0 6px; font-size: 14px; font-weight: 800; color: var(--foam); text-align: center; }
+.sheet .daily-score { font-size: 20px; font-weight: 900; text-align: center; }
+.help-subtitle { margin: 14px 0 4px; font-size: 18px; }
+.tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.tabs button {
+  flex: 1;
+  padding: 8px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--white);
+  font: inherit;
+  font-weight: 800;
+}
+.tabs button.on { background: var(--white); color: var(--ink); }
+.rating { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 10px; font-weight: 800; }
+.rating button { width: 44px; height: 44px; border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 22px; }
