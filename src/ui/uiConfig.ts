@@ -16,8 +16,6 @@ export const UI = {
   /** Animation durations; no normal animation goes over maxAnimMs. */
   anim: { eat: 260, fall: 300, frenzy: 480, whirl: 460, shuffle: 400, shake: 300, pop: 220, floatText: 500 },
   maxAnimMs: 500,
-  /** Energy pips shown on predators. */
-  energyPips: 3,
   /** Extra scale for a predator at full energy. */
   energyScale: 0.12,
   /** Clock turns red under this many ms. */

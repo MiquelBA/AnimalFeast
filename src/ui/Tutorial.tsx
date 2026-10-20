@@ -6,6 +6,7 @@ import { renderSprite } from '../assets/spriteRegistry';
 import { minEnergyGain } from '../engine/score';
 import type { GameConfig, Pos } from '../engine/types';
 import { themeLevels, type Theme, type ThemeLevel } from '../themes';
+import { EnergyFill } from './Board';
 import { STRINGS } from './strings';
 import { UI } from './uiConfig';
 
@@ -28,7 +29,8 @@ interface Frame {
   readonly gone?: readonly Pos[];
   readonly chomp?: Pos;
   readonly glow?: Pos;
-  readonly pips?: { readonly at: Pos; readonly count: number };
+  /** Energy of one animal, as thirds of the frenzy threshold. */
+  readonly energy?: { readonly at: Pos; readonly thirds: number };
   readonly tags?: readonly Tag[];
 }
 
@@ -96,7 +98,7 @@ function wildScene(top: number, middle: ThemeLevel): Scene {
   };
 }
 
-/** An animal fills its energy dots by eating; full, it frenzies and eats every smaller neighbour. */
+/** An animal's square fills with energy as it eats; full, it frenzies and eats every smaller neighbour. */
 function frenzyScene(top: number, charger: number, bonusS: number): Scene {
   const T = STRINGS.tutorial;
   const centre = at(1, 1);
@@ -111,10 +113,10 @@ function frenzyScene(top: number, charger: number, bonusS: number): Scene {
     size: 3,
     pieces: board([[centre, charger], ...around]),
     frames: [
-      { ms: D.startMs, pips: { at: centre, count: 0 } },
-      ...[1, 2, 3].map((count): Frame => ({ ms: D.eatMs, chomp: centre, pips: { at: centre, count }, tags: [{ at: centre, text: T.yum, tone: 'gold' }] })),
-      { ms: D.eatMs, glow: centre, pips: { at: centre, count: 3 }, tags: [{ at: centre, text: STRINGS.frenzy, tone: 'gold' }] },
-      { ms: D.eatMs * 1.4, chomp: centre, gone: smaller, pips: { at: centre, count: 0 }, tags: [{ at: centre, text: STRINGS.timeBonus(bonusS), tone: 'good' }] },
+      { ms: D.startMs, energy: { at: centre, thirds: 0 } },
+      ...[1, 2, 3].map((thirds): Frame => ({ ms: D.eatMs, chomp: centre, energy: { at: centre, thirds }, tags: [{ at: centre, text: T.yum, tone: 'gold' }] })),
+      { ms: D.eatMs, glow: centre, energy: { at: centre, thirds: 3 }, tags: [{ at: centre, text: STRINGS.frenzy, tone: 'gold' }] },
+      { ms: D.eatMs * 1.4, chomp: centre, gone: smaller, energy: { at: centre, thirds: 0 }, tags: [{ at: centre, text: STRINGS.timeBonus(bonusS), tone: 'good' }] },
       rest(),
     ],
   };
@@ -151,16 +153,12 @@ function DemoBoard({ scene, levels, wild }: { scene: Scene; levels: readonly The
           frame.glow && key(frame.glow) === key(p) && 'glow',
           piece === 'wild' && 'wild',
         ].filter(Boolean).join(' ');
-        const pips = frame.pips && key(frame.pips.at) === key(p) ? frame.pips.count : null;
+        const energy = frame.energy && key(frame.energy.at) === key(p) ? frame.energy.thirds / 3 : null;
         return (
           // The key changes with each chomp, so the animation replays.
           <div key={`${k}-${frame.chomp && key(frame.chomp) === key(p) ? scene.frames.indexOf(frame) : 0}`} className={classes} style={{ left: p.col * cell, top: p.row * cell, width: cell, height: cell }} data-animal={look?.id}>
+            {energy !== null && look && <EnergyFill ratio={energy} color={look.color} />}
             {look && <div className="tile-art">{renderSprite(look.sprite, { color: look.color })}</div>}
-            {pips !== null && (
-              <div className="tutorial-pips">
-                {Array.from({ length: UI.energyPips }, (_, i) => <span key={i} className={i < pips ? 'on' : ''} />)}
-              </div>
-            )}
           </div>
         );
       })}

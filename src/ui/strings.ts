@@ -50,8 +50,8 @@ export const STRINGS = {
       frenzy: {
         title: 'Energia i frenesí',
         lines: (chargers: readonly string[], bonusS: number) => [
-          `${capitalize(listAnd(chargers))} ${chargers.length > 1 ? 'es fan' : 'es fa'} més ${chargers.length > 1 ? 'forts' : 'fort'} cada cop que ${chargers.length > 1 ? 'mengen' : 'menja'}: ${chargers.length > 1 ? "se'ls omplen" : 'se li omplen'} els puntets grocs.`,
-          `Amb els puntets plens entra en frenesí: es menja tots els veïns més petits i guanyes ${bonusS} segons més.`,
+          `${capitalize(listAnd(chargers))} ${chargers.length > 1 ? 'es fan' : 'es fa'} més ${chargers.length > 1 ? 'forts' : 'fort'} cada cop que ${chargers.length > 1 ? 'mengen' : 'menja'}: la seva casella s'omple des de baix, com un got.`,
+          `Quan la casella és plena, entra en frenesí: es menja tots els veïns més petits i guanyes ${bonusS} segons més.`,
         ],
       },
     },
@@ -143,8 +143,8 @@ export const STRINGS = {
     'Les preses desapareixen i el depredador es queda. Els animals de dalt cauen.',
     `Com més llarga la cadena, més punts: ${o.multipliers.map(([len, m]) => `×${m} amb ${len}`).join(', ')}. ${capitalize(o.top)} menja i se'n va.`,
     o.chargers.length > 1
-      ? `${capitalize(listAnd(o.chargers))} es fan més forts cada cop que mengen. Quan arriben al màxim, entren en frenesí i es mengen tots els veïns més petits (+${o.frenzyBonusS} s).`
-      : `${capitalize(listAnd(o.chargers))} es fa més fort cada cop que menja. Quan arriba al màxim, entra en frenesí i es menja tots els veïns més petits (+${o.frenzyBonusS} s).`,
+      ? `${capitalize(listAnd(o.chargers))} es fan més forts cada cop que mengen: la seva casella s'omple des de baix, com un got. Quan és plena, entren en frenesí i es mengen tots els veïns més petits (+${o.frenzyBonusS} s).`
+      : `${capitalize(listAnd(o.chargers))} es fa més fort cada cop que menja: la seva casella s'omple des de baix, com un got. Quan és plena, entra en frenesí i es menja tots els veïns més petits (+${o.frenzyBonusS} s).`,
     'Fes cadenes ràpides seguides per multiplicar els punts.',
     'Els animals daurats doblen els punts de la cadena on entren.',
     'El pop és un comodí: pot fer de qualsevol presa de la cadena, també de la més petita on comences. L\'únic que no pot fer és de depredador, l\'animal gran que menja al final: aquest ha de ser sempre un animal de veritat, perquè és el que es queda al tauler, guanya força i pot entrar en frenesí.',

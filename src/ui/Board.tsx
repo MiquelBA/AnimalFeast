@@ -264,11 +264,19 @@ interface TileProps {
   readonly register: RefObject<Map<number, HTMLDivElement>>;
 }
 
+/** Energy fills the square from the bottom in the animal's colour, like a glass; full means frenzy. */
+export function EnergyFill({ ratio, color }: { ratio: number; color: string }) {
+  return (
+    <div className="energy" aria-hidden="true">
+      <div className="energy-level" style={{ height: `${Math.round(ratio * 100)}%`, ['--fill' as string]: color }} />
+    </div>
+  );
+}
+
 const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted, register }: TileProps) {
   const level = animalLook(theme, animal, config.tiers.length);
   const canCharge = minEnergyGain(animal.tier, config) > 0;
   const ratio = canCharge ? Math.min(1, animal.energy / config.frenzyThreshold) : 0;
-  const pips = Math.min(UI.energyPips, Math.floor(ratio * UI.energyPips));
   const near = isNearFrenzy(animal, config);
   const ref = (el: HTMLDivElement | null) => {
     if (el) register.current.set(animal.id, el);
@@ -279,15 +287,11 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
   return (
     <div ref={ref} className={classes} style={{ width: cell, height: cell, transform: px(pos, cell) }} data-tier={animal.tier} data-animal={level.id}>
       <div className="tile-inner">
+        {canCharge && <EnergyFill ratio={ratio} color={level.color} />}
         <div className="tile-art" style={{ transform: `scale(${1 + UI.energyScale * ratio})`, filter: ratio ? `brightness(${1 + 0.3 * ratio}) saturate(${1 + 0.4 * ratio})` : undefined }}>
           {renderSprite(level.sprite, { color: level.color })}
         </div>
         {animal.golden && <span className="golden-badge" aria-hidden="true">★</span>}
-        {canCharge && (
-          <div className="pips" aria-hidden="true">
-            {Array.from({ length: UI.energyPips }, (_, i) => <span key={i} className={i < pips ? 'on' : ''} />)}
-          </div>
-        )}
       </div>
     </div>
   );
