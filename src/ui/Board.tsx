@@ -11,6 +11,8 @@ import { STRINGS } from './strings';
 import { cellCentre, cellsAlong, extendPath, hitCell, type Point } from './trace';
 import { UI } from './uiConfig';
 import { FxLayer } from './fx/FxLayer';
+import { shakeScreen } from './fx/shake';
+import { impactOf } from './impact';
 import type { Display, Floater } from './useGame';
 
 interface BoardProps {
@@ -69,7 +71,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         ? [
             { transform: px(from, cell), offset: 0, easing: 'cubic-bezier(.5,0,1,.6)' },
             { transform: to, offset: 0.72, easing: 'ease-out' },
-            { transform: `translate3d(${t.pos.col * cell}px, ${(t.pos.row - 0.08) * cell}px, 0)`, offset: 0.86, easing: 'ease-in' },
+            { transform: `translate3d(${t.pos.col * cell}px, ${(t.pos.row - 0.14) * cell}px, 0) scale(1.06, 0.94)`, offset: 0.86, easing: 'ease-in' },
             { transform: to, offset: 1 },
           ]
         : [{ transform: px(from, cell) }, { transform: to }];
@@ -78,7 +80,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
     for (const e of display.effects) {
       if (e.type !== 'pop') continue;
       tileEls.current.get(e.id)?.firstElementChild?.animate(
-        [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.45)' }, { transform: 'scale(1)' }],
         { duration: UI.anim.pop, easing: 'ease-out', composite: 'add' },
       );
     }
@@ -88,21 +90,14 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         if (e.type !== 'points') continue;
         const t = display.tiles.find((x) => samePos(x.pos, e.pos));
         tileEls.current.get(t?.animal.id ?? -1)?.querySelector('.tile-art')?.animate(
-          [{ transform: 'scale(1, 1)' }, { transform: 'scale(1.3, 0.8) rotate(-6deg)' }, { transform: 'scale(0.9, 1.15) rotate(4deg)' }, { transform: 'scale(1, 1)' }],
+          [{ transform: 'scale(1, 1)' }, { transform: 'scale(1.6, 0.7) rotate(-9deg)' }, { transform: 'scale(0.85, 1.3) rotate(6deg)' }, { transform: 'scale(1.1, 0.95)' }, { transform: 'scale(1, 1)' }],
           { duration: UI.fx.chompMs, easing: 'ease-out', composite: 'add' },
         );
       }
     }
     prevPos.current = new Map(display.tiles.map((t) => [t.animal.id, t.pos]));
-    // Big moments shake the board a little.
-    const amplitude = display.kind === 'frenzy' || display.kind === 'whirl' ? UI.shake.frenzy : longChain(display) ? UI.shake.longChain : 0;
-    if (amplitude && boardRef.current) {
-      const a = amplitude * cell;
-      boardRef.current.animate(
-        [[0, 0], [-a, a / 2], [a, -a / 2], [-a / 2, a / 3], [a / 3, 0], [0, 0]].map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` })),
-        { duration: UI.anim.shake, easing: 'ease-out' },
-      );
-    }
+    // Every hit jolts the screen, harder the bigger it is.
+    shakeScreen(impactOf(display), boardRef.current);
   }, [display, cell]);
 
   const setTrace = (next: readonly Pos[]) => {
@@ -330,11 +325,6 @@ function GhostTile({ ghost, index, cell, theme, tierCount, duration, spin }: { g
   );
 }
 
-/** A chain of 4 or more (the eat frame swallows 3+ prey). */
-function longChain(display: Display): boolean {
-  return display.kind === 'eat' && display.ghosts.filter((g) => g.kind === 'swallow').length >= 3;
-}
-
 /** How strongly the whole board flashes on this frame (0 = not at all). */
 function flashLevel(display: Display): number {
   const f = UI.fx.flash;
@@ -342,7 +332,9 @@ function flashLevel(display: Display): number {
   if (display.kind === 'whirl') return f.whirl;
   const wave = display.effects.find((e) => e.type === 'text' && e.text === 'wave');
   const n = wave?.type === 'text' ? wave.wave ?? 0 : 0;
-  return n ? Math.min(f.maxWave, f.wave + f.perWave * (n - 1)) : 0;
+  if (n) return Math.min(f.maxWave, f.wave + f.perWave * (n - 1));
+  // Plain chains flash too, a little more for longer ones.
+  return display.kind === 'eat' ? Math.min(f.wave, f.chain * impactOf(display)) : 0;
 }
 
 function floaterText(f: Floater): { text: string; className: string } | null {

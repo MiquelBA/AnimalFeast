@@ -6,8 +6,6 @@ export const STRINGS = {
   help: 'Ajuda',
   soundOn: 'Activa el so',
   soundOff: 'Silencia el so',
-  musicOn: 'Activa la música',
-  musicOff: 'Apaga la música',
   pause: 'Pausa',
   resume: 'Continua',
   paused: 'En pausa',

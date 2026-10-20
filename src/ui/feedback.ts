@@ -1,10 +1,11 @@
 // Sound and vibration for what happens on the board. Every cue is optional: the game reads the same without it.
 import type { TraceStatus } from '../engine/chains';
-import { playRun, playRung, playSound } from './audio';
+import { playImpact, playRun, playRung, playSound } from './audio';
 import { boostAmbient } from './fx/ambientEnergy';
 import type { Frame } from './frames';
 import { UI } from './uiConfig';
 import { vibrate } from './haptics';
+import { impactOf } from './impact';
 
 /** Tracing climbs the musical ladder one rung per cell. */
 export function traceStepCue(length: number, status: TraceStatus, sound: boolean): void {
@@ -25,23 +26,28 @@ export function frameCue(frame: Frame, sound: boolean): void {
   const texts = frame.effects.flatMap((e) => (e.type === 'text' ? [e] : []));
   const wave = texts.find((t) => t.text === 'wave')?.wave ?? 0;
   if (wave) boostAmbient(UI.ambient.boost.wave * wave);
+  const impact = impactOf(frame);
+  if (sound) playImpact(impact);
   if (frame.kind === 'eat') {
     // The chain's notes as a quick run; each wave of reactions starts higher up the ladder.
     const length = frame.ghosts.filter((g) => g.kind === 'swallow').length + 1;
     const run = Math.min(length, UI.sound.maxRunNotes);
     if (sound) playRun(Math.min(wave, UI.sound.maxWaveStep) * UI.sound.rungsPerWave, run, UI.sound.runStepMs, wave);
     play('eat');
-    vibrate(wave > 0 || length >= 4 ? 'longChain' : 'chain');
+    vibrate(wave > 0 ? 'wave' : length >= 4 ? 'longChain' : 'chain');
   } else if (frame.kind === 'whirl') {
     boostAmbient(UI.ambient.boost.whirl);
     play('whirl');
-    vibrate('frenzy');
+    vibrate('whirl');
   } else if (frame.kind === 'frenzy') {
     boostAmbient(UI.ambient.boost.frenzy);
     play('frenzy');
     vibrate('frenzy');
   } else if (frame.kind === 'shuffle') {
     play('shuffle');
+  } else if (frame.kind === 'fall') {
+    play('thud');
+    vibrate('land');
   }
   if (texts.some((t) => t.text === 'golden')) play('golden');
   if (texts.some((t) => t.text === 'combo' && t.value >= 2)) play('combo');
@@ -58,10 +64,10 @@ export function countdownCue(count: number, sound: boolean): void {
   if (count === 0) {
     if (sound) playSound('go');
     boostAmbient(UI.ambient.boost.wave);
-    vibrate('chain');
+    vibrate('go');
   } else {
     if (sound) playSound('count', 2 ** ((UI.countdown.steps - count) * 2 / 12));
-    vibrate('step');
+    vibrate('count');
   }
 }
 

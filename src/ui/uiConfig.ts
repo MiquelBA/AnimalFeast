@@ -21,36 +21,47 @@ export const UI = {
   /** Combo text by combo count (index = count − 2, last one repeats). */
   comboTextKeys: ['comboGreat', 'comboAmazing', 'comboFeast'] as const,
   soundKey: 'animal-feast:sound',
-  musicKey: 'animal-feast:music',
   /** Vibration patterns (ms on/off). */
   haptics: {
-    step: [6],
-    chain: [18],
-    longChain: [25, 30, 25],
-    frenzy: [35, 40, 70],
-    invalid: [10, 40, 10],
-    gameOver: [40, 60, 40],
+    step: [12],
+    land: [14],
+    chain: [45],
+    longChain: [70, 35, 90],
+    wave: [90, 30, 60, 30, 120],
+    whirl: [180, 40, 70, 40, 70, 40, 140],
+    frenzy: [120, 45, 120, 45, 280],
+    invalid: [25, 40, 25],
+    count: [30],
+    go: [120],
+    gameOver: [260, 120, 420],
   } as Record<string, number[]>,
-  /** Celebrations: board shake (fraction of a cell). */
-  shake: { frenzy: 0.12, longChain: 0.05 },
+  /**
+   * Punch (impact.ts): every moment gets an impact level (1 = chain of 3, up to max) that scales the
+   * freeze after the hit, the screen shake, vibration and the boom under the sound.
+   */
+  impact: {
+    perExtraPrey: 1, perWave: 1.2, perExtraChain: 0.6, shuffle: 1, whirl: 6, frenzy: 7, max: 8,
+    /** Freeze frame after the hit, for impacts of `from` and up. */
+    hitStop: { from: 2, baseMs: 70, perImpactMs: 25, maxMs: 220 },
+    /** Whole-screen shake: px at impact 1, more per level, capped; big hits also twist. */
+    shake: { basePx: 3, perImpactPx: 2.2, maxPx: 18, twistFrom: 4, twistDeg: 1.6, ms: 380 },
+    /** Scale punch of the board on a hit. */
+    punch: { perImpact: 0.008, max: 0.05, ms: 260 },
+  },
   /**
    * Canvas effects (fx/recipes.ts). Sizes and speeds in cells (speeds per second); lives in ms,
    * within maxAnimMs. spillPx lets effects spread past the board's edge.
    */
   fx: {
     spillPx: 48,
-    chainParticles: 14, longChainExtra: 12, perWaveExtra: 6, sparks: 36,
-    dotSize: 0.07, chainSpeed: 4.5, chainLifeMs: 460, ringLifeMs: 400,
-    frenzyReach: 3.6, frenzyLifeMs: 500, whirlLifeMs: 480, whirlBubbles: 28,
+    chainParticles: 24, longChainExtra: 20, perWaveExtra: 10, sparks: 60,
+    dotSize: 0.095, chainSpeed: 6, chainLifeMs: 480, ringLifeMs: 440,
+    frenzyReach: 4.8, frenzyLifeMs: 500, whirlLifeMs: 480, whirlBubbles: 40,
     /** Predator bite: squash and stretch when it eats. */
-    chompMs: 240,
+    chompMs: 300,
     /** Screen flash strength by moment (opacity), and how much more each wave adds. */
-    flash: { frenzy: 0.55, whirl: 0.4, wave: 0.12, perWave: 0.08, maxWave: 0.45 },
+    flash: { frenzy: 0.8, whirl: 0.6, chain: 0.06, wave: 0.2, perWave: 0.1, maxWave: 0.6 },
   },
-  /**
-   * Music of a move: an eaten chain plays up to maxRunNotes notes of the pentatonic ladder,
-   * runStepMs apart; each wave starts rungsPerWave rungs higher (capped at maxWaveStep waves).
-   */
   /**
    * Background bubbles (fx/Ambient.tsx). Speed in px/s; energy from big moments makes more and
    * faster bubbles and a glow, and fades by decayPerSecond.
@@ -63,10 +74,9 @@ export const UI = {
   /** The reaction banner grows this much per extra wave. */
   waveTextGrow: 0.18,
   /**
-   * Background music (music.ts): tempo, scheduler timing and voice levels. hotEnergy is the sea's
-   * energy at which the music is at full intensity.
+   * Music of a move: an eaten chain plays up to maxRunNotes notes of the pentatonic ladder,
+   * runStepMs apart; each wave starts rungsPerWave rungs higher (capped at maxWaveStep waves).
    */
-  music: { bpm: 96, tickMs: 25, lookAheadMs: 120, pad: 0.018, bass: 0.07, melody: 0.025, kick: 0.09, shaker: 0.02, hat: 0.03, hotEnergy: 1.2 },
   sound: { maxRunNotes: 6, runStepMs: 55, rungsPerWave: 3, maxWaveStep: 4 },
   /** Clock ticks in the last seconds. */
   warningTickMs: 5000,

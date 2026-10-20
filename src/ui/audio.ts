@@ -1,5 +1,5 @@
-// Synthesised sound (Web Audio, no files): effects, the musical ladder, and the bus the background
-// music plays through. Optional: the game never depends on it.
+// Synthesised sound (Web Audio, no files): effects and the musical ladder. Optional: the game never
+// depends on it.
 //
 // iPhone notes: Safari only starts audio inside a touch that ends (touchend/click), so unlockAudio
 // listens to those too; and it asks for the "playback" audio session (Safari 17+), so the game
@@ -7,7 +7,7 @@
 
 export type SoundName =
   | 'eat' | 'golden' | 'combo' | 'frenzy'
-  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest' | 'whirl' | 'count' | 'go';
+  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest' | 'whirl' | 'count' | 'go' | 'thud';
 
 /** One voice: an oscillator, or filtered noise ('noise') whose filter frequency glides from → to. */
 export interface Note {
@@ -69,6 +69,11 @@ const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
     ...[C5, E5, G5, C6].map((from, i): Note => ({ wave: 'sawtooth', from, ms: 520, delayMs: i * 20, gain: 0.035, attackMs: 10 })),
     { wave: 'triangle', from: C6, to: C7, ms: 260, gain: 0.05 },
   ],
+  // Animals landing after a fall: a short low knock.
+  thud: [
+    { wave: 'sine', from: 140, to: 50, ms: 90, gain: 0.16 },
+    { wave: 'noise', from: 500, to: 120, ms: 70, gain: 0.07, filter: 'lowpass', q: 0.8 },
+  ],
   timeBonus: [{ wave: 'sine', from: E6, ms: 140, gain: 0.07 }, { wave: 'sine', from: G6, ms: 160, delayMs: 70, gain: 0.06 }],
   invalid: [{ wave: 'triangle', from: 190, to: 140, ms: 130, gain: 0.09 }],
   shuffle: [
@@ -120,21 +125,26 @@ export function playRun(rung: number, count: number, stepMs: number, wave = 0): 
   playNotes(notes);
 }
 
+/** The weight under a hit: a sub boom and a low crunch, heavier with the impact level. */
+export function playImpact(level: number): void {
+  if (level <= 0) return;
+  const l = Math.min(level, 8);
+  playNotes([
+    boom(90 + l * 12, 0.22 + l * 0.05, 0, 260 + l * 40),
+    { wave: 'noise', from: 900 + l * 300, to: 90, ms: 180 + l * 30, gain: 0.08 + l * 0.025, filter: 'lowpass', q: 1.2 },
+    ...(l >= 3 ? [{ wave: 'square' as const, from: 70, to: 35, ms: 200 + l * 20, gain: 0.04 + l * 0.01 }] : []),
+  ]);
+}
+
 /** One short pluck on the ladder (tracing). */
 export function playRung(rung: number): void {
   playNotes([{ wave: 'triangle', from: ladderNote(rung), ms: 90, gain: 0.08 }, { wave: 'sine', from: ladderNote(rung) * 2, ms: 60, gain: 0.025 }]);
 }
 
 let context: AudioContext | null = null;
-/** Effects and music each have a level, then share a compressor so big hits don't clip. */
+/** Effects go through a compressor so big hits don't clip. */
 let sfx: GainNode | null = null;
-let musicBus: GainNode | null = null;
 let noise: AudioBuffer | null = null;
-
-/** The context and the music bus, once audio is running (for music.ts). */
-export function musicOutput(): { context: AudioContext; bus: GainNode; noise: AudioBuffer } | null {
-  return context && musicBus && noise && context.state === 'running' ? { context, bus: musicBus, noise } : null;
-}
 
 /** Call from a user gesture: creates or resumes the audio context. Safe to call often. */
 export function unlockAudio(): void {
@@ -147,15 +157,12 @@ export function unlockAudio(): void {
       if (!Ctor) return;
       context = new Ctor();
       const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -14;
-      compressor.ratio.value = 6;
+      compressor.threshold.value = -12;
+      compressor.ratio.value = 8;
       compressor.connect(context.destination);
       sfx = context.createGain();
-      sfx.gain.value = 0.9;
+      sfx.gain.value = 1;
       sfx.connect(compressor);
-      musicBus = context.createGain();
-      musicBus.gain.value = 1;
-      musicBus.connect(compressor);
       noise = context.createBuffer(1, context.sampleRate, context.sampleRate);
       const data = noise.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;

@@ -15,7 +15,6 @@ import { UI } from './uiConfig';
 import { DebugPanel, type DebugSetup } from './DebugPanel';
 import { useGame, type NewGameOptions } from './useGame';
 import { unlockAudio } from './audio';
-import { startMusic, stopMusic } from './music';
 import { Ambient } from './fx/Ambient';
 import { countdownCue, finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
 import { loadFlag, saveFlag } from './storage';
@@ -69,24 +68,6 @@ export function App() {
     setSound((on) => { saveFlag(UI.soundKey, !on); return !on; });
   };
 
-  // Background music while playing (not paused, over, or with the app in the background).
-  const [music, setMusic] = useState(() => loadFlag(UI.musicKey, true));
-  const toggleMusic = () => {
-    unlockAudio();
-    setMusic((on) => { saveFlag(UI.musicKey, !on); return !on; });
-  };
-  const [hidden, setHidden] = useState(() => document.hidden);
-  useEffect(() => {
-    const onVisibility = () => setHidden(document.hidden);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
-  useEffect(() => {
-    if (music && !hidden && g.phase === 'playing') startMusic();
-    else stopMusic();
-  }, [music, hidden, g.phase]);
-  useEffect(() => stopMusic, []);
-
   // Last seconds: a soft tick each second.
   const lastTick = useRef<number | null>(null);
   useEffect(() => {
@@ -128,9 +109,6 @@ export function App() {
         )}
         <button className={`sound-btn${sound ? '' : ' off'}`} onClick={toggleSound} aria-label={sound ? STRINGS.soundOff : STRINGS.soundOn} aria-pressed={sound}>
           <SpeakerIcon on={sound} />
-        </button>
-        <button className={`sound-btn music-btn${music ? '' : ' off'}`} onClick={toggleMusic} aria-label={music ? STRINGS.musicOff : STRINGS.musicOn} aria-pressed={music}>
-          <MusicIcon on={music} />
         </button>
         <h1 className="title">{STRINGS.title}</h1>
         <div className="hud-row">
@@ -227,17 +205,6 @@ function SpeakerIcon({ on }: { on: boolean }) {
       ) : (
         <path d="M16.5 9 L21.5 15 M21.5 9 L16.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       )}
-    </svg>
-  );
-}
-
-function MusicIcon({ on }: { on: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path d="M9 17 V6 L19 4 V15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <circle cx="6.5" cy="17" r="2.5" fill="currentColor" />
-      <circle cx="16.5" cy="15" r="2.5" fill="currentColor" />
-      {!on && <path d="M4 4 L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
     </svg>
   );
 }

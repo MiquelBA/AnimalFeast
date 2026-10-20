@@ -5,6 +5,7 @@ import { applyMove, createGame, isLegalMove, remainingMs, tick } from '../engine
 import type { Board, GameConfig, GameState, Pos } from '../engine/types';
 import { buildFrames, tilesOf, type Effect, type Frame, type FrameKind } from './frames';
 import type { Scenario } from '../scenarios';
+import { hitStopMs, impactOf } from './impact';
 import { loadBest, saveBest } from './storage';
 import { UI } from './uiConfig';
 
@@ -222,7 +223,7 @@ export function useGame(scenario: Scenario, initialConfig: GameConfig = scenario
         setGame(gameRef.current);
         setSettling(true);
       }
-      frameTimer.current = window.setTimeout(() => step(i + 1), frame.duration);
+      frameTimer.current = window.setTimeout(() => step(i + 1), frame.duration + hitStopMs(impactOf(frame)));
     };
     step(0);
   }, [addFloaters, settle, setSettling]);

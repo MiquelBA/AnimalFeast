@@ -156,11 +156,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   text-shadow: 0 1px 0 var(--ink);
 }
 .tile.wild .tile-inner { background: rgba(232, 106, 146, 0.22); }
-.float-golden { top: 20%; font-size: 32px; color: var(--gold); }
-.float-whirl { top: 30%; font-size: 34px; color: var(--foam); }
+.float-golden { top: 20%; font-size: 40px; color: var(--gold); }
+.float-whirl { top: 30%; font-size: 46px; color: var(--foam); }
 .tile.whirl .tile-art { animation: whirl-spin 1.6s linear infinite; }
 @keyframes whirl-spin { to { rotate: 360deg; } }
-.float-wave { top: 62%; font-size: calc(30px * var(--grow, 1)); color: var(--foam); }
+.float-wave { top: 62%; font-size: calc(40px * var(--grow, 1)); color: var(--foam); }
 
 /* Energy */
 .pips {
@@ -247,16 +247,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
   animation-timing-function: ease-out;
   text-shadow: 0 2px 0 var(--ink), 0 0 8px rgba(6, 42, 74, 0.6);
 }
-.float-points { font-size: 22px; color: var(--gold); transform: translate(-50%, -50%); animation-name: rise; }
+.float-points { font-size: 30px; color: var(--gold); transform: translate(-50%, -50%); animation-name: rise; }
 .float-mult { font-size: 18px; color: var(--white); }
 @keyframes rise {
-  from { opacity: 1; translate: 0 0; scale: 0.8; }
-  30% { scale: 1.15; }
-  to { opacity: 0; translate: 0 -40px; scale: 1; }
+  from { opacity: 1; translate: 0 0; scale: 0.4; }
+  22% { scale: 1.5; }
+  40% { scale: 1.05; }
+  to { opacity: 0; translate: 0 -48px; scale: 1; }
 }
 .float-banner { left: 50%; transform: translate(-50%, -50%); animation-name: banner; }
-.float-combo { top: 30%; font-size: 34px; color: var(--gold); }
-.float-frenzy { top: 50%; font-size: 50px; color: var(--white); text-shadow: 0 3px 0 var(--danger), 0 0 18px var(--gold), 0 0 32px var(--danger); animation-name: frenzy-banner; }
+.float-combo { top: 30%; font-size: 44px; color: var(--gold); }
+.float-frenzy { top: 50%; font-size: 66px; color: var(--white); text-shadow: 0 3px 0 var(--danger), 0 0 18px var(--gold), 0 0 32px var(--danger); animation-name: frenzy-banner; }
 @keyframes frenzy-banner {
   from { opacity: 0; scale: 0.3; rotate: -12deg; }
   20% { opacity: 1; scale: 1.45; rotate: 6deg; }
@@ -267,10 +268,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .float-time { top: 12%; font-size: 26px; color: var(--green); }
 .float-shuffle { top: 50%; font-size: 26px; color: var(--foam); }
 @keyframes banner {
-  from { opacity: 0; scale: 0.5; }
-  25% { opacity: 1; scale: 1.15; }
-  70% { opacity: 1; scale: 1; }
-  to { opacity: 0; scale: 1.05; }
+  from { opacity: 0; scale: 2.6; rotate: -6deg; }
+  18% { opacity: 1; scale: 0.85; rotate: 2deg; }
+  34% { scale: 1.12; rotate: 0deg; }
+  72% { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 1.1; }
 }
 
 /* Start screen: one tap to begin */
@@ -502,7 +504,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   place-items: center;
 }
 .sound-btn.off { opacity: 0.6; }
-.music-btn { right: 38px; }
 
 /* Debug panel (?debug=1) */
 .debug-btn {
