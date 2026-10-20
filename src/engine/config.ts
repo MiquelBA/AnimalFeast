@@ -65,3 +65,16 @@ export const FIVE_TIERS: ConfigOverrides = {
 export function makeConfig(overrides: ConfigOverrides = {}, base: GameConfig = DEFAULT_CONFIG): GameConfig {
   return { ...base, ...overrides };
 }
+
+/**
+ * The feast (REGLES.md v0.6): five tiers, spontaneous chains and a whirlpool for the full chain.
+ * This is the game players get; DEFAULT_CONFIG stays the base that variants and tests build on.
+ */
+export const FEAST: ConfigOverrides = {
+  ...FIVE_TIERS,
+  spontaneousLines: true,
+  refillRerolls: 10,
+  whirlpoolChainLength: 5,
+};
+
+export const GAME_CONFIG: GameConfig = makeConfig(FEAST);

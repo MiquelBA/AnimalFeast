@@ -1,7 +1,7 @@
 // Portrait game screen: HUD on top, the board in the middle, discreet controls at thumb height.
 import { useEffect, useRef, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
-import { DEFAULT_CONFIG, makeConfig } from '../engine/config';
+import { GAME_CONFIG, makeConfig } from '../engine/config';
 import { VARIANTS } from '../engine/variants';
 import { minEnergyGain } from '../engine/score';
 import type { GameConfig, GameStats } from '../engine/types';
@@ -26,7 +26,7 @@ function urlParam(name: string): string | null {
 const debugEnabled = urlParam('debug') === '1';
 /** ?variant=<key> plays a rule variant from the start (for testing on a phone); it doesn't count for the record. */
 const urlVariant = urlParam('variant');
-const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : DEFAULT_CONFIG;
+const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : GAME_CONFIG;
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);

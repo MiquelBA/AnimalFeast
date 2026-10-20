@@ -1,7 +1,7 @@
 // Game session for the UI: engine state, clock, animation queue, hint, pause and best score.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { legalChains } from '../engine/chains';
-import { DEFAULT_CONFIG } from '../engine/config';
+import { GAME_CONFIG } from '../engine/config';
 import { applyMove, createGame, isLegalMove, remainingMs, tick } from '../engine/game';
 import type { Board, GameConfig, GameState, Pos } from '../engine/types';
 import { buildFrames, tilesOf, type Effect, type Frame, type FrameKind } from './frames';
@@ -55,7 +55,7 @@ export interface GameFeedback {
   readonly onFinish?: (newBest: boolean) => void;
 }
 
-export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG, feedback: GameFeedback = {}) {
+export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameFeedback = {}) {
   const feedbackRef = useRef(feedback);
   useEffect(() => { feedbackRef.current = feedback; });
   const [game, setGame] = useState(() => createGame({ seed: newSeed(), config: initialConfig }));
@@ -73,8 +73,8 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG, feedback: Ga
   const [best, setBest] = useState(loadBest);
   const [newBest, setNewBest] = useState(false);
   /** Only games with the default rules count for the record. */
-  const recordsBest = useRef(initialConfig === DEFAULT_CONFIG);
-  const [records, setRecords] = useState(initialConfig === DEFAULT_CONFIG);
+  const recordsBest = useRef(initialConfig === GAME_CONFIG);
+  const [records, setRecords] = useState(initialConfig === GAME_CONFIG);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
   const [activity, setActivity] = useState(0);
@@ -205,7 +205,7 @@ export function useGame(initialConfig: GameConfig = DEFAULT_CONFIG, feedback: Ga
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
     const config = options.config ?? gameRef.current.config;
-    recordsBest.current = config === DEFAULT_CONFIG && !options.board;
+    recordsBest.current = config === GAME_CONFIG && !options.board;
     setRecords(recordsBest.current);
     const fresh = createGame({ seed: options.seed ?? newSeed(), config, board: options.board });
     gameRef.current = fresh;

@@ -1,6 +1,6 @@
 // Playtesting panel (?debug=1): seed, mode, rule variant, typed board and move-log export.
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../engine/config';
+import { GAME_CONFIG } from '../engine/config';
 import { boardToString, parseBoard } from '../engine/notation';
 import type { Board, GameConfig, GameMode, GameState } from '../engine/types';
 import { VARIANTS, variantConfig } from '../engine/variants';
@@ -40,8 +40,8 @@ export function DebugPanel({ game, setup, onStart, onClose }: DebugPanelProps) {
       setMessage(T.badBoard);
       return;
     }
-    const config: GameConfig = variant === 'base' && mode === DEFAULT_CONFIG.mode && !board
-      ? DEFAULT_CONFIG
+    const config: GameConfig = variant === 'base' && mode === GAME_CONFIG.mode && !board
+      ? GAME_CONFIG
       : variantConfig(variant, { mode });
     onStart({ seed: seedValue, config, board }, { variant, startBoard: board ? boardText.trim() : undefined });
   };
