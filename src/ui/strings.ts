@@ -15,11 +15,16 @@ export const STRINGS = {
   tutorial: {
     title: 'Com es juga',
     goal: 'Completa la cadena tròfica!',
+    /** "L'orca es menja el tauró, que es menja la tonyina, …" from the biggest down. */
+    eats: (definites: readonly string[]) =>
+      `${capitalize(definites[0])} es menja ${definites.slice(1).join(', que es menja ')}.`,
     yum: 'Ñam!',
     points: (lengths: readonly number[], diagonal: boolean, reverse: boolean) => [
-      `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més petit al més gran${reverse || diagonal ? ` (${[reverse && 'també al revés', diagonal && (reverse ? 'en diagonal' : 'també en diagonal')].filter(Boolean).join(' i ')})` : ''}.`,
+      reverse
+        ? `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més gran al més petit o al revés${diagonal ? ', també en diagonal' : ''}.`
+        : `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més petit al més gran${diagonal ? ', també en diagonal' : ''}.`,
       'Cada animal ha de ser just el següent de la cadena.',
-      'El més gran es menja els altres i guanyes punts. Com més llarga la cadena, més punts!',
+      'El més gran es menja tota la cadena i guanyes punts. Com més llarga, més punts!',
     ],
     go: 'A jugar!',
     again: 'Mira com es juga',

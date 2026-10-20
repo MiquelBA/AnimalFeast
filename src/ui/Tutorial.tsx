@@ -1,5 +1,5 @@
-// First-game walkthrough: a small board where a finger traces a whole food chain, from the
-// smallest animal to the biggest, and the predator eats the rest. It loops until the player is ready.
+// First-game walkthrough: a small board where a finger traces a whole food chain from the orca
+// down (each animal eats the next), and the orca eats them all. It loops until the player is ready.
 import { useEffect, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import type { GameConfig, Pos } from '../engine/types';
@@ -23,6 +23,8 @@ export function TutorialModal({ theme, config, onDone }: { theme: Theme; config:
   // The demo chain uses the top tiers (all of them on a 5-tier board).
   const chain = PATH.slice(PATH.length - Math.min(PATH.length, levels.length));
   const firstTier = levels.length - chain.length + 1;
+  /** The finger goes from the predator down to the smallest prey. */
+  const trace = [...chain].reverse();
   const [stage, setStage] = useState<Stage>({ kind: 'trace', reached: 0 });
 
   useEffect(() => {
@@ -39,27 +41,30 @@ export function TutorialModal({ theme, config, onDone }: { theme: Theme; config:
 
   const cell = UI.tutorial.cellPx;
   const reached = stage.kind === 'trace' ? stage.reached : chain.length - 1;
-  const finger = chain[Math.min(reached, chain.length - 1)];
+  const finger = trace[Math.min(reached, trace.length - 1)];
   const eaten = stage.kind !== 'trace';
   const tierAt = (r: number, c: number): number | null => {
     const i = chain.findIndex((p) => p.row === r && p.col === c);
     if (i >= 0) return firstTier + i;
     return FILLER[`${r},${c}`] ?? null;
   };
-  const line = chain.slice(0, reached + 1).map((p) => `${(p.col + 0.5) * cell},${(p.row + 0.5) * cell}`).join(' ');
-  const names = [...levels].slice(firstTier - 1).map((l) => l.name.toLowerCase()).join(' → ');
+  const line = trace.slice(0, reached + 1).map((p) => `${(p.col + 0.5) * cell},${(p.row + 0.5) * cell}`).join(' ');
+  const shown = levels.slice(firstTier - 1).reverse();
+  const names = shown.map((l) => l.name.toLowerCase()).join(' → ');
 
   return (
     <div className="overlay tutorial-overlay">
       <div className="sheet tutorial" role="dialog" aria-modal="true" aria-label={T.title}>
         <h2>{T.title}</h2>
         <p className="tutorial-goal">{T.goal}</p>
+        <p className="tutorial-eats">{T.eats(shown.map((l) => l.definite))}</p>
         <div className="tutorial-board" style={{ width: cell * SIZE, height: cell * SIZE }} aria-hidden="true">
           {Array.from({ length: SIZE * SIZE }, (_, k) => {
             const r = Math.floor(k / SIZE), c = k % SIZE;
             const tier = tierAt(r, c);
             const i = chain.findIndex((p) => p.row === r && p.col === c);
-            const inChain = i >= 0 && i <= reached && stage.kind !== 'rest';
+            const t = trace.findIndex((p) => p.row === r && p.col === c);
+            const inChain = t >= 0 && t <= reached && stage.kind !== 'rest';
             const gone = eaten && i >= 0 && i < chain.length - 1;
             const predator = eaten && i === chain.length - 1;
             const level = tier ? levels[tier - 1] : null;
