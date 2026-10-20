@@ -44,6 +44,7 @@ export const STRINGS = {
   playAgain: 'Torna a jugar',
   leaderboard: {
     title: 'Classificació',
+    open: 'Mira la classificació',
     askName: 'Posa el teu nom per sortir a la classificació',
     changeName: 'Canvia el teu nom',
     namePlaceholder: 'El teu nom',

@@ -75,11 +75,11 @@ export function App() {
     const second = Math.ceil(g.clockMs / 1000);
     if (second > 0 && second !== lastTick.current) { lastTick.current = second; warningCue(soundRef.current); }
   }, [g.clockMs, g.phase, config.mode]);
-  const [sheet, setSheet] = useState<'help' | 'debug' | null>(null);
+  const [sheet, setSheet] = useState<'help' | 'debug' | 'ranking' | null>(null);
   const [debugSetup, setDebugSetup] = useState<DebugSetup>({ variant: 'base' });
   const pausedForSheet = useRef(false);
 
-  const openSheet = (which: 'help' | 'debug') => {
+  const openSheet = (which: 'help' | 'debug' | 'ranking') => {
     pausedForSheet.current = g.phase === 'playing' || g.phase === 'ready';
     g.pause();
     setSheet(which);
@@ -106,6 +106,11 @@ export function App() {
       <header className="hud">
         {debugEnabled && (
           <button className="debug-btn" onClick={() => openSheet('debug')} aria-label={STRINGS.debug.open}>⚙</button>
+        )}
+        {leaderboardEnabled() && (
+          <button className="sound-btn ranking-btn" onClick={() => openSheet('ranking')} aria-label={STRINGS.leaderboard.open}>
+            <TrophyIcon />
+          </button>
         )}
         <button className={`sound-btn${sound ? '' : ' off'}`} onClick={toggleSound} aria-label={sound ? STRINGS.soundOff : STRINGS.soundOn} aria-pressed={sound}>
           <SpeakerIcon on={sound} />
@@ -169,7 +174,10 @@ export function App() {
 
       {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} />}
       {sheet === 'debug' && <DebugPanel scenario={scenario} game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
-      {g.phase === 'start' && !sheet && <StartScreen theme={theme} tierCount={config.tiers.length} onStart={g.begin} />}
+      {sheet === 'ranking' && <RankingModal ranking={scenario.rankingId} onClose={closeSheet} />}
+      {g.phase === 'start' && !sheet && (
+        <StartScreen theme={theme} tierCount={config.tiers.length} onStart={g.begin} onRanking={leaderboardEnabled() ? () => openSheet('ranking') : undefined} />
+      )}
       {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
           <div className="sheet">
@@ -295,14 +303,43 @@ function Confetti() {
 }
 
 /** The first tap starts the game (and, on phones, unlocks sound for the countdown). */
-function StartScreen({ theme, tierCount, onStart }: { theme: Theme; tierCount: number; onStart: () => void }) {
+function StartScreen({ theme, tierCount, onStart, onRanking }: { theme: Theme; tierCount: number; onStart: () => void; onRanking?: () => void }) {
   const top = themeLevels(theme, tierCount)[tierCount - 1];
+  const start = () => { unlockAudio(); onStart(); };
   return (
-    <button className="overlay start-screen" onClick={() => { unlockAudio(); onStart(); }} autoFocus>
+    <div className="overlay start-screen" onClick={start}>
       <span className="start-mascot" aria-hidden="true">{renderSprite(top.sprite, { color: top.color })}</span>
       <span className="start-title">{STRINGS.title}</span>
-      <span className="start-tap">{STRINGS.tapToStart}</span>
-    </button>
+      <button className="start-tap" onClick={(e) => { e.stopPropagation(); start(); }} autoFocus>{STRINGS.tapToStart}</button>
+      {onRanking && (
+        <button className="start-ranking" onClick={(e) => { e.stopPropagation(); onRanking(); }}>
+          <TrophyIcon /> {STRINGS.leaderboard.title}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The shared ranking, any time (top bar trophy or start screen). */
+function RankingModal({ ranking, onClose }: { ranking: string; onClose: () => void }) {
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.leaderboard.title}>
+        <h2>{STRINGS.leaderboard.title}</h2>
+        <Leaderboard ranking={ranking} />
+        <button className="primary-btn" onClick={onClose} autoFocus>{STRINGS.close}</button>
+      </div>
+    </div>
+  );
+}
+
+function TrophyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M7 4 H17 V9 A5 5 0 0 1 7 9 Z" fill="currentColor" />
+      <path d="M7 6 H4 A3 3 0 0 0 7 11 M17 6 H20 A3 3 0 0 1 17 11" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M11 14 H13 V17 H16 V20 H8 V17 H11 Z" fill="currentColor" />
+    </svg>
   );
 }
 

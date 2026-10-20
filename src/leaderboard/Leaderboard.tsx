@@ -1,4 +1,5 @@
-// The shared ranking on the end screen: asks for a name once, sends the score, shows the top players.
+// The shared ranking. On the end screen (with a score) it asks for a name once and sends the score;
+// opened from the trophy button (no score) it only shows the top players.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { STRINGS } from '../ui/strings';
 import { fetchRank, fetchTop, submitScore, type RankedScore } from './api';
@@ -7,7 +8,7 @@ import { cleanName, loadPlayer, savePlayer, type Player } from './player';
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
-export function Leaderboard({ ranking, score }: { ranking: string; score: number }) {
+export function Leaderboard({ ranking, score }: { ranking: string; score?: number }) {
   const T = STRINGS.leaderboard;
   const [player, setPlayer] = useState<Player | null>(loadPlayer);
   const [editing, setEditing] = useState(false);
@@ -21,12 +22,12 @@ export function Leaderboard({ ranking, score }: { ranking: string; score: number
   const sync = async (who: Player | null) => {
     setStatus('loading');
     try {
-      if (who && score > 0 && !sent.current) {
+      if (who && score && score > 0 && !sent.current) {
         // Marked before sending, so a second call meanwhile can't send it twice.
         sent.current = true;
         await submitScore(ranking, who.id, who.name, score).catch((error: unknown) => { sent.current = false; throw error; });
       }
-      const [list, place] = await Promise.all([fetchTop(ranking, LEADERBOARD.topCount), score > 0 ? fetchRank(ranking, score) : null]);
+      const [list, place] = await Promise.all([fetchTop(ranking, LEADERBOARD.topCount), score && score > 0 ? fetchRank(ranking, score) : null]);
       setTop(list);
       setRank(place);
       setStatus('done');
@@ -51,10 +52,10 @@ export function Leaderboard({ ranking, score }: { ranking: string; score: number
     void sync(saved);
   };
 
-  const askName = !player || editing;
+  const askName = editing || (!player && score !== undefined);
   return (
     <section className="leaderboard" aria-label={T.title}>
-      <h3>{T.title}</h3>
+      {score !== undefined && <h3>{T.title}</h3>}
       {askName ? (
         <form className="lb-name" onSubmit={saveName}>
           <label htmlFor="lb-name">{player ? T.changeName : T.askName}</label>
@@ -71,7 +72,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score: number
             <button type="submit" disabled={!cleanName(draft)}>{T.save}</button>
           </div>
         </form>
-      ) : (
+      ) : player && (
         <p className="lb-player">
           {T.playingAs} <strong>{player.name}</strong>{' '}
           <button type="button" className="link-btn" onClick={() => { setDraft(player.name); setEditing(true); }}>{T.edit}</button>

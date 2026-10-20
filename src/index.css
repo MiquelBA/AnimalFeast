@@ -277,9 +277,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* Start screen: one tap to begin */
 .overlay.start-screen {
-  border: none;
   color: var(--white);
-  font: inherit;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -299,8 +297,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 22px;
   font-weight: 900;
   box-shadow: 0 4px 0 #C99A10;
+  border: none;
+  font-family: inherit;
+  outline: none;
   animation: start-pulse 1.1s ease-in-out infinite;
 }
+.start-ranking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  background: rgba(6, 42, 74, 0.45);
+  color: var(--white);
+  font: inherit;
+  font-size: 17px;
+}
+.sound-btn.ranking-btn { right: 38px; }
 @keyframes start-bob { 50% { translate: 0 -8px; rotate: -4deg; } }
 @keyframes start-pulse { 50% { scale: 1.07; } }
 
