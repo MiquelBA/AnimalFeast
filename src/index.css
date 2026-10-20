@@ -157,6 +157,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .tile.wild .tile-inner { background: rgba(232, 106, 146, 0.22); }
 .float-golden { top: 20%; font-size: 32px; color: var(--gold); }
+.float-whirl { top: 30%; font-size: 34px; color: var(--foam); }
+.tile.whirl .tile-art { animation: whirl-spin 1.6s linear infinite; }
+@keyframes whirl-spin { to { rotate: 360deg; } }
 .float-wave { top: 62%; font-size: 30px; color: var(--foam); }
 
 /* Energy */
@@ -451,5 +454,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .particles, .confetti { display: none; }
+  .tile.whirl .tile-art { animation: none; }
   .clock.warning, .tile.hint .tile-inner, .tile.near .tile-inner::before, .tile.golden .tile-inner::after { animation: none; }
 }

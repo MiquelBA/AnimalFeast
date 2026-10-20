@@ -83,6 +83,7 @@ export function spawnAnimal(spawner: Spawner, config: GameConfig): Animal {
 
 /** An animal from a spec; flags appear only when set, so plain animals stay plain. */
 export function makeAnimal(id: number, spec: SpawnSpec, energy: number): Animal {
+  if (spec.whirl) return { id, tier: 0, energy: 0, wild: true, whirl: true };
   if (spec.wild) return { id, tier: 0, energy: 0, wild: true };
   return spec.golden ? { id, tier: spec.tier, energy, golden: true } : { id, tier: spec.tier, energy };
 }

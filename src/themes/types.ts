@@ -30,4 +30,6 @@ export interface Theme {
   readonly levels: readonly ThemeLevel[];
   /** The wildcard piece (REGLES.md §9). */
   readonly wild: ThemeSpecial;
+  /** The whirlpool a long chain leaves behind (also a wildcard). */
+  readonly whirl: ThemeSpecial;
 }

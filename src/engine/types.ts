@@ -17,6 +17,7 @@ export interface SpawnSpec {
   readonly tier: Tier;
   readonly golden?: boolean;
   readonly wild?: boolean;
+  readonly whirl?: boolean;
 }
 
 export interface Animal {
@@ -27,6 +28,11 @@ export interface Animal {
   readonly golden?: boolean;
   /** Wildcard (octopus): stands in for any tier in a chain, never as the predator. Its tier is 0. */
   readonly wild?: boolean;
+  /**
+   * Whirlpool (also wild): left by a long traced chain. It plays as a wildcard; when its chain is
+   * eaten it swallows its whole row and column.
+   */
+  readonly whirl?: boolean;
 }
 
 export type Cell = Animal | null;
@@ -98,6 +104,8 @@ export interface GameConfig {
    * looking for enough possible chains (0 = off).
    */
   readonly refillRerolls: number;
+  /** A traced chain at least this long leaves a whirlpool where it started (0 = off). */
+  readonly whirlpoolChainLength: number;
 }
 
 /** A traced chain: cells in the order the finger visited them; atMs is game time (time mode). */
@@ -120,6 +128,7 @@ export interface GameStats {
   /** Spontaneous chains, and the most waves in one move. */
   readonly spontaneousChains: number;
   readonly maxWaves: number;
+  readonly whirlpools: number;
   readonly moves: number;
 }
 
@@ -151,6 +160,7 @@ export interface GameState {
   readonly wildChains: number;
   readonly spontaneousChains: number;
   readonly maxWaves: number;
+  readonly whirlpools: number;
   readonly gameOver: boolean;
   readonly history: readonly Move[];
 }
@@ -185,6 +195,10 @@ export type GameEvent =
   | { readonly type: 'energyGain'; readonly animalId: number; readonly pos: Pos; readonly from: number; readonly to: number }
   | { readonly type: 'fall'; readonly falls: readonly Fall[] }
   | { readonly type: 'spawn'; readonly animal: Animal; readonly pos: Pos }
+  /** A piece the engine creates in place (a whirlpool). */
+  | { readonly type: 'create'; readonly animal: Animal; readonly pos: Pos }
+  /** A whirlpool in an eaten chain swallows its row and column (not the chain's predator). */
+  | { readonly type: 'whirlpool'; readonly animal: Animal; readonly pos: Pos; readonly swallowed: readonly { readonly animal: Animal; readonly pos: Pos; readonly points: number }[]; readonly points: number }
   | { readonly type: 'frenzy'; readonly predator: Animal; readonly pos: Pos; readonly prey: readonly { readonly animal: Animal; readonly pos: Pos; readonly points: number }[]; readonly points: number }
   /** A predator leaves the board (its cell empties). */
   | { readonly type: 'leave'; readonly animal: Animal; readonly pos: Pos; readonly reason: LeaveReason }

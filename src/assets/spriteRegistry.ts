@@ -1,6 +1,6 @@
 // Maps a theme's sprite keys to drawing functions. Real art replaces entries here.
 import type { ReactNode } from 'react';
-import { Octopus, Orca, Plankton, Sardine, Shark, Tuna } from './placeholders';
+import { Octopus, Orca, Plankton, Sardine, Shark, Tuna, Whirlpool } from './placeholders';
 
 export interface SpriteProps {
   readonly color: string;
@@ -15,6 +15,7 @@ const REGISTRY: Readonly<Record<string, Sprite>> = {
   'ocean/shark': Shark,
   'ocean/orca': Orca,
   'ocean/octopus': Octopus,
+  'ocean/whirlpool': Whirlpool,
 };
 
 export function hasSprite(key: string): boolean {

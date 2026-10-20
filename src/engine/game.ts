@@ -1,11 +1,11 @@
 // Game lifecycle (REGLES.md v0.2 §3, §6–8): creation, applyMove, tick, replay and stats.
 // applyMove and tick are pure and deterministic: same state + same input = same result.
-import { applyGravity, cloneBoard, cols, neighbourPositions, rows, spawnAnimal, type Spawner } from './board';
+import { applyGravity, cloneBoard, cols, makeAnimal, neighbourPositions, rows, spawnAnimal, type Spawner } from './board';
 import { checkChain, countChains } from './chains';
 import { findLines, hasLines } from './lines';
 import { DEFAULT_CONFIG } from './config';
 import { nextInt, seedToState } from './rng';
-import { chainPoints, comboMultiplier, energyFromPrey, frenzyPoints, goldenMultiplier } from './score';
+import { chainPoints, comboMultiplier, energyFromPrey, frenzyPoints, goldenMultiplier, preyValue } from './score';
 import type {
   Animal, Board, Cell, Fall, GameConfig, GameEvent, GameState, GameStats, Move, MoveResult, Pos, SpawnSpec, TimeBonusReason,
 } from './types';
@@ -47,7 +47,7 @@ export function createGame({ seed, config = DEFAULT_CONFIG, board, spawnQueue = 
     config, seed, rngState: spawner.rngState, spawnQueue: spawner.spawnQueue, nextId: spawner.nextId, board: start,
     score: 0, moves: 0, elapsedMs: 0, timeLimitMs: config.durationMs, timeBonusMs: 0, lastMoveAtMs: null, combo: 0,
     chains: 0, chains4: 0, frenzies: 0, maxCombo: 0, bestMove: 0, shuffles: 0, goldenChains: 0, wildChains: 0,
-    spontaneousChains: 0, maxWaves: 0,
+    spontaneousChains: 0, maxWaves: 0, whirlpools: 0,
     gameOver: false, history: [],
   };
 }
@@ -57,8 +57,8 @@ export function remainingMs(state: GameState): number {
 }
 
 export function gameStats(state: GameState): GameStats {
-  const { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, spontaneousChains, maxWaves, moves } = state;
-  return { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, spontaneousChains, maxWaves, moves };
+  const { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, spontaneousChains, maxWaves, whirlpools, moves } = state;
+  return { score, chains, chains4, frenzies, maxCombo, bestMove, shuffles, goldenChains, wildChains, spontaneousChains, maxWaves, whirlpools, moves };
 }
 
 export type MoveError = 'gameOver' | 'missingTime' | 'timeTravel' | 'timeUp' | 'invalidChain';
@@ -141,6 +141,13 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
   const forcedFrenzy = new Set<number>();
   const traced = eatChain(board, path, check.tiers, { combo: comboMult, wave: 0 }, config, events, forcedFrenzy);
   const points = traced.points;
+  let whirlpools = traced.whirlpools;
+  // A long traced chain leaves a whirlpool where it started (not one that used a whirlpool).
+  if (config.whirlpoolChainLength > 0 && path.length >= config.whirlpoolChainLength && !traced.whirlpools && !board[path[0].row][path[0].col]) {
+    const animal = makeAnimal(spawner.nextId++, { tier: 0, whirl: true }, 0);
+    board[path[0].row][path[0].col] = animal;
+    events.push({ type: 'create', animal, pos: path[0] });
+  }
 
   // 4. Gravity and refill. lastRefill marks where the latest refill's events start (see step 6).
   let lastRefill = events.length;
@@ -183,7 +190,9 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
     wave++;
     for (const line of lines) {
       const tiers = line.map((p) => board[p.row][p.col]!.tier);
-      wavePoints += eatChain(board, line, tiers, { combo: 1, wave }, config, events, forcedFrenzy).points;
+      const eaten = eatChain(board, line, tiers, { combo: 1, wave }, config, events, forcedFrenzy);
+      wavePoints += eaten.points;
+      whirlpools += eaten.whirlpools;
       spontaneous++;
     }
     lastRefill = events.length;
@@ -216,6 +225,7 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
     chains4: state.chains4 + (path.length === 4 ? 1 : 0),
     spontaneousChains: state.spontaneousChains + spontaneous,
     maxWaves: Math.max(state.maxWaves, wave),
+    whirlpools: state.whirlpools + whirlpools,
     frenzies: state.frenzies + frenzies,
     maxCombo: Math.max(state.maxCombo, combo),
     bestMove: Math.max(state.bestMove, movePoints),
@@ -236,7 +246,7 @@ function play(state: GameState, move: Move, checkPlayable: boolean): MoveResult 
 function eatChain(
   board: Cell[][], path: readonly Pos[], tiers: readonly number[], m: { combo: number; wave: number },
   config: GameConfig, events: GameEvent[], forcedFrenzy: Set<number>,
-): { points: number; goldenMultiplier: number; wild: boolean } {
+): { points: number; goldenMultiplier: number; wild: boolean; whirlpools: number } {
   const predatorPos = path[path.length - 1];
   const predator = board[predatorPos.row][predatorPos.col]!;
   const prey = path.slice(0, -1).map((p, i) => ({ animal: board[p.row][p.col]!, pos: p, tier: tiers[i] }));
@@ -254,6 +264,8 @@ function eatChain(
     events.push({ type: 'eat', prey: p.animal, from: p.pos, predatorId: predator.id, to: predatorPos, frenzy: false });
   }
   const topTier = config.maxTierLeaves && predator.tier === config.tiers.length;
+  let whirlPoints = 0;
+  for (const p of prey) if (p.animal.whirl) whirlPoints += swallow(board, p.animal, p.pos, predatorPos, config, events);
   if (topTier && config.fullChainFrenzy && path.length === config.tiers.length) {
     forcedFrenzy.add(predator.id);
   } else if (topTier) {
@@ -264,7 +276,30 @@ function eatChain(
     board[predatorPos.row][predatorPos.col] = { ...predator, energy };
     events.push({ type: 'energyGain', animalId: predator.id, pos: predatorPos, from: predator.energy, to: energy });
   }
-  return { points, goldenMultiplier: goldenMult, wild: chainAnimals.some((a) => a.wild) };
+  return { points: points + whirlPoints, goldenMultiplier: goldenMult, wild: chainAnimals.some((a) => a.wild), whirlpools: prey.filter((p) => p.animal.whirl).length };
+}
+
+/**
+ * A whirlpool swallows every animal in its row and column except the chain's predator. Another
+ * whirlpool caught in it goes off too. Returns the points (prey values; wildcards are worth 0).
+ */
+function swallow(board: Cell[][], whirl: Animal, pos: Pos, keep: Pos, config: GameConfig, events: GameEvent[]): number {
+  const cells: Pos[] = [];
+  for (let c = 0; c < cols(board); c++) if (c !== pos.col) cells.push({ row: pos.row, col: c });
+  for (let r = 0; r < rows(board); r++) if (r !== pos.row) cells.push({ row: r, col: pos.col });
+  const swallowed: { animal: Animal; pos: Pos; points: number }[] = [];
+  const chained: { animal: Animal; pos: Pos }[] = [];
+  for (const p of cells) {
+    const a = board[p.row][p.col];
+    if (!a || (p.row === keep.row && p.col === keep.col)) continue;
+    board[p.row][p.col] = null;
+    if (a.whirl) { chained.push({ animal: a, pos: p }); continue; }
+    swallowed.push({ animal: a, pos: p, points: a.wild ? 0 : preyValue(a, config) });
+  }
+  const total = swallowed.reduce((s, e) => s + e.points, 0);
+  events.push({ type: 'whirlpool', animal: whirl, pos, swallowed, points: total });
+  for (const e of swallowed) events.push({ type: 'eat', prey: e.animal, from: e.pos, predatorId: whirl.id, to: pos, frenzy: false });
+  return total + chained.reduce((s, w) => s + swallow(board, w.animal, w.pos, keep, config, events), 0);
 }
 
 function findFrenzied(board: Board, forced: ReadonlySet<number>, config: GameConfig): Pos | null {

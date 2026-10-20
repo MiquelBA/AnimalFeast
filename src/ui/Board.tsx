@@ -83,7 +83,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
     }
     prevPos.current = new Map(display.tiles.map((t) => [t.animal.id, t.pos]));
     // Big moments shake the board a little.
-    const amplitude = display.kind === 'frenzy' ? UI.shake.frenzy : longChain(display) ? UI.shake.longChain : 0;
+    const amplitude = display.kind === 'frenzy' || display.kind === 'whirl' ? UI.shake.frenzy : longChain(display) ? UI.shake.longChain : 0;
     if (amplitude && boardRef.current) {
       const a = amplitude * cell;
       boardRef.current.animate(
@@ -264,7 +264,7 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
     if (el) register.current.set(animal.id, el);
     else register.current.delete(animal.id);
   };
-  const classes = ['tile', mark && `mark-${mark}`, hinted && 'hint', near && 'near', animal.golden && 'golden', animal.wild && 'wild']
+  const classes = ['tile', mark && `mark-${mark}`, hinted && 'hint', near && 'near', animal.golden && 'golden', animal.wild && !animal.whirl && 'wild', animal.whirl && 'whirl']
     .filter(Boolean).join(' ');
   return (
     <div ref={ref} className={classes} style={{ width: cell, height: cell, transform: px(pos, cell) }} data-tier={animal.tier}>
@@ -329,7 +329,7 @@ function burstOf(display: Display): Burst | null {
     const count = longChain(display) ? UI.particles.longChain : UI.particles.chain;
     return pos ? { id: display.frameId, pos, count, reach: UI.particles.reach, duration: UI.anim.eat + 180 } : null;
   }
-  if (display.kind === 'frenzy') {
+  if (display.kind === 'frenzy' || display.kind === 'whirl') {
     const flash = display.effects.find((e) => e.type === 'flash');
     pos = flash?.type === 'flash' ? flash.pos : undefined;
     return pos ? { id: display.frameId, pos, count: UI.particles.frenzy, reach: UI.particles.frenzyReach, duration: UI.anim.frenzy } : null;
@@ -394,6 +394,7 @@ function floaterText(f: Floater): { text: string; className: string } | null {
     case 'multiplier': return { text: STRINGS.times(e.value), className: 'float-points float-mult' };
     case 'golden': return { text: STRINGS.golden(e.value), className: 'float-banner float-golden' };
     case 'shuffle': return { text: STRINGS.shuffle, className: 'float-banner float-shuffle' };
+    case 'whirl': return { text: STRINGS.whirl, className: 'float-banner float-whirl' };
     case 'wave': return { text: STRINGS.wave(e.value), className: 'float-banner float-wave' };
   }
 }

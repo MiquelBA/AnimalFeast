@@ -4,6 +4,7 @@ import { countChains, legalChains } from '../chains';
 import { makeConfig } from '../config';
 import { applyMove, createGame, replay } from '../game';
 import { findLines } from '../lines';
+import { VARIANTS } from '../variants';
 import { parseBoard } from '../notation';
 import { ofType, setup, trace } from './helpers';
 
@@ -55,6 +56,7 @@ describe('whole games with spontaneous chains', () => {
   for (const [name, overrides] of [
     ['traced as now', { spontaneousLines: true, refillRerolls: 10 }],
     ['traced in a cross', { spontaneousLines: true, adjacency: 4 as const, refillRerolls: 100, minValidMoves: 2 }],
+    ['feast: five tiers and whirlpools', VARIANTS.feast.overrides],
   ] as const) {
     it(`${name}: boards stay calm and playable, ids stay unique, replays match`, () => {
       const config = makeConfig({ ...overrides, mode: 'moves', maxMoves: 40 });

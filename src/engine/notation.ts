@@ -2,7 +2,7 @@
 // Rows top to bottom, separated by "/" or newlines; cells by spaces: "O O O / S S S / S T R3".
 // Letters are ocean species, top-anchored: with 4 tiers S = 1, T = 2, R = 3, O = 4; with 5 tiers
 // K (plankton) = 1 and the rest move up one. "*" after the letter marks a golden
-// animal and an optional number is the energy ("R*6"). P is the wildcard octopus. Boards may be rectangular.
+// animal and an optional number is the energy ("R*6"). P is the wildcard octopus, W a whirlpool. Boards may be rectangular.
 import { makeAnimal } from './board';
 import type { Animal, Board, Cell, SpawnSpec } from './types';
 
@@ -14,12 +14,14 @@ function letters(tierCount: number): readonly string[] {
   return SPECIES_LETTERS.slice(SPECIES_LETTERS.length - tierCount);
 }
 export const WILD_LETTER = 'P';
+export const WHIRL_LETTER = 'W';
 
 const TOKEN = /^([A-Z])(\*?)(\d*)$/;
 
 function parseSpec(token: string, tierCount: number): { spec: SpawnSpec; energy: number } | null {
   const m = TOKEN.exec(token);
   if (!m) return null;
+  if (m[1] === WHIRL_LETTER) return m[2] || m[3] ? null : { spec: { tier: 0, wild: true, whirl: true }, energy: 0 };
   if (m[1] === WILD_LETTER) return m[2] || m[3] ? null : { spec: { tier: 0, wild: true }, energy: 0 };
   const index = letters(tierCount).indexOf(m[1]);
   if (index < 0) return null;
@@ -51,6 +53,7 @@ export function parseTiers(text: string, tierCount = DEFAULT_TIER_COUNT): SpawnS
 }
 
 export function animalToken(a: Animal, tierCount = DEFAULT_TIER_COUNT): string {
+  if (a.whirl) return WHIRL_LETTER;
   if (a.wild) return WILD_LETTER;
   return (letters(tierCount)[a.tier - 1] ?? String(a.tier)) + (a.golden ? '*' : '') + (a.energy ? String(a.energy) : '');
 }

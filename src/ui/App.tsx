@@ -213,6 +213,7 @@ function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfi
     cross: config.adjacency === 4,
     lines: config.spontaneousLines,
     waves: config.waveMultipliers.slice(0, 2),
+    whirlLength: config.whirlpoolChainLength,
   });
   return (
     <div className="overlay" onClick={onClose}>
@@ -278,6 +279,7 @@ function GameOver({ title, stats, best, newBest, theme, tierCount, onRestart }: 
     [STRINGS.statChains4, stats.chains4],
     [STRINGS.statFrenzies, stats.frenzies],
     ...(stats.spontaneousChains ? [[STRINGS.statSpontaneous, stats.spontaneousChains] as [string, number]] : []),
+    ...(stats.whirlpools ? [[STRINGS.statWhirlpools, stats.whirlpools] as [string, number]] : []),
     [STRINGS.statBestMove, stats.bestMove],
   ];
   return (

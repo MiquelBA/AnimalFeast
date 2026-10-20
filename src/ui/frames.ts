@@ -19,11 +19,11 @@ export interface Ghost {
 
 export type Effect =
   | { readonly type: 'points'; readonly pos: Pos; readonly points: number }
-  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'golden' | 'shuffle' | 'wave'; readonly value: number; readonly pos?: Pos }
+  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'golden' | 'shuffle' | 'wave' | 'whirl'; readonly value: number; readonly pos?: Pos; readonly wave?: number }
   | { readonly type: 'pop'; readonly id: number }
   | { readonly type: 'flash'; readonly pos: Pos };
 
-export type FrameKind = 'eat' | 'fall' | 'frenzy' | 'shuffle';
+export type FrameKind = 'eat' | 'fall' | 'frenzy' | 'whirl' | 'shuffle';
 
 export interface Frame {
   readonly kind: FrameKind;
@@ -42,7 +42,7 @@ export function tilesOf(board: Board): TileState[] {
   return tiles;
 }
 
-const DURATION: Record<FrameKind, number> = { eat: UI.anim.eat, fall: UI.anim.fall, frenzy: UI.anim.frenzy, shuffle: UI.anim.shuffle };
+const DURATION: Record<FrameKind, number> = { eat: UI.anim.eat, fall: UI.anim.fall, frenzy: UI.anim.frenzy, whirl: UI.anim.whirl, shuffle: UI.anim.shuffle };
 
 export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[] {
   const working = new Map<number, TileState>(tilesOf(before).map((t) => [t.animal.id, t]));
@@ -78,7 +78,7 @@ export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[
         if (!sameWave) {
           open('eat');
           openWave = e.wave;
-          if (e.wave > 0) effect({ type: 'text', text: 'wave', value: e.waveMultiplier });
+          if (e.wave > 0) effect({ type: 'text', text: 'wave', value: e.waveMultiplier, wave: e.wave });
         }
         const predatorPos = e.path[e.path.length - 1];
         effect({ type: 'points', pos: predatorPos, points: e.points });
@@ -115,6 +115,16 @@ export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[
         current!.entering.set(e.animal.id, { row: e.pos.row - inColumn, col: e.pos.col });
         break;
       }
+      case 'whirlpool':
+        open('whirl');
+        effect({ type: 'flash', pos: e.pos });
+        effect({ type: 'text', text: 'whirl', value: 0, pos: e.pos });
+        if (e.points) effect({ type: 'points', pos: e.pos, points: e.points });
+        break;
+      case 'create':
+        working.set(e.animal.id, { animal: e.animal, pos: e.pos });
+        effect({ type: 'pop', id: e.animal.id });
+        break;
       case 'frenzy':
         open('frenzy');
         effect({ type: 'flash', pos: e.pos });

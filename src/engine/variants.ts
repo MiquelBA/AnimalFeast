@@ -27,6 +27,10 @@ export const VARIANTS: Readonly<Record<string, { label: string; overrides: Confi
     label: 'cadenes espontànies + traç en creu',
     overrides: { spontaneousLines: true, adjacency: 4, refillRerolls: 100, minValidMoves: 2 },
   },
+  feast: {
+    label: 'festí: 5 nivells + cadenes espontànies + remolí',
+    overrides: { ...FIVE_TIERS, spontaneousLines: true, refillRerolls: 10, whirlpoolChainLength: 5 },
+  },
   goldOnly: { label: 'només daurats (3%)', overrides: { wildChance: 0 } },
   wildOnly: { label: 'només pop (5%)', overrides: { goldenChance: 0 } },
   wild2: { label: 'pop 2% (abans)', overrides: { wildChance: 0.02 } },

@@ -41,6 +41,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   waveMultipliers: [2, 3, 4, 5],
   maxWaves: 30,
   refillRerolls: 0,
+  whirlpoolChainLength: 0,
 };
 
 export type ConfigOverrides = Partial<GameConfig>;

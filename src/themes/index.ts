@@ -20,6 +20,7 @@ export function themeLevel(theme: Theme, tier: number, tierCount: number): Theme
 }
 
 /** Name, colour and sprite for an animal on the board (the wildcard has its own look). */
-export function animalLook(theme: Theme, animal: { readonly tier: number; readonly wild?: boolean }, tierCount: number): ThemeSpecial {
+export function animalLook(theme: Theme, animal: { readonly tier: number; readonly wild?: boolean; readonly whirl?: boolean }, tierCount: number): ThemeSpecial {
+  if (animal.whirl) return theme.whirl;
   return animal.wild ? theme.wild : themeLevel(theme, animal.tier, tierCount);
 }

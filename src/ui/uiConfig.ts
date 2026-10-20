@@ -8,7 +8,7 @@ export const UI = {
   /** Idle time before a possible chain glows. */
   hintDelayMs: 5000,
   /** Animation durations; no normal animation goes over maxAnimMs. */
-  anim: { eat: 260, fall: 300, frenzy: 480, shuffle: 400, shake: 300, pop: 220, floatText: 500 },
+  anim: { eat: 260, fall: 300, frenzy: 480, whirl: 460, shuffle: 400, shake: 300, pop: 220, floatText: 500 },
   maxAnimMs: 500,
   /** Energy pips shown on predators. */
   energyPips: 3,
@@ -36,8 +36,11 @@ export const UI = {
     /** Sizes as fractions of a cell (every fourth one is big) and how far they fly, in cells. */
     big: 0.2, small: 0.12, reach: 1.3, frenzyReach: 2.4,
   },
-  /** Each wave of spontaneous chains sounds higher: pitch 1 + step × wave multiplier. */
-  wavePitchStep: 0.08,
+  /**
+   * Music of a move: an eaten chain plays up to maxRunNotes notes of the pentatonic ladder,
+   * runStepMs apart; each wave starts rungsPerWave rungs higher (capped at maxWaveStep waves).
+   */
+  sound: { maxRunNotes: 6, runStepMs: 55, rungsPerWave: 3, maxWaveStep: 4 },
   /** Clock ticks in the last seconds. */
   warningTickMs: 5000,
   /** End screen: score count-up and confetti (outside play, so not bound by maxAnimMs). */

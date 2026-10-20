@@ -2,8 +2,8 @@
 // The audio context starts on the first touch, as mobile browsers require.
 
 export type SoundName =
-  | 'step' | 'chain3' | 'chain4' | 'chain5' | 'eat' | 'golden' | 'combo' | 'frenzy'
-  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest';
+  | 'eat' | 'golden' | 'combo' | 'frenzy'
+  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest' | 'whirl';
 
 interface Note {
   readonly wave: OscillatorType;
@@ -21,10 +21,6 @@ const arpeggio = (notes: readonly number[], stepMs: number, gain: number): Note[
   notes.map((from, i) => ({ wave: 'triangle', from, ms: stepMs * 2, delayMs: i * stepMs, gain }));
 
 const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
-  step: [{ wave: 'sine', from: 600, ms: 60, gain: 0.07 }],
-  chain3: arpeggio([C5, E5, G5], 45, 0.09),
-  chain4: arpeggio([C5, E5, G5, C6], 45, 0.1),
-  chain5: arpeggio([C5, E5, G5, C6, E6], 40, 0.1),
   eat: [{ wave: 'sine', from: 320, to: 110, ms: 120, delayMs: 60, gain: 0.12 }],
   golden: [
     { wave: 'sine', from: G6, ms: 80, delayMs: 120, gain: 0.06 },
@@ -45,7 +41,40 @@ const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
   warning: [{ wave: 'sine', from: 1000, ms: 50, gain: 0.05 }],
   gameOver: arpeggio([G5, E5, C5, G5 * 2], 110, 0.09),
   newBest: arpeggio([C5, E5, G5, C6, E6, G6], 70, 0.09),
+  whirl: [
+    { wave: 'sawtooth', from: 900, to: 120, ms: 420, gain: 0.04 },
+    { wave: 'sine', from: 1400, to: 300, ms: 380, delayMs: 40, gain: 0.07 },
+    { wave: 'sine', from: 70, to: 45, ms: 300, delayMs: 120, gain: 0.16 },
+  ],
 };
+
+/**
+ * The game's musical ladder: a major pentatonic scale rising from C5. Tracing climbs it one rung per
+ * cell; an eaten chain plays its notes as a quick run; each wave of reactions starts higher.
+ */
+const PENTATONIC = [0, 2, 4, 7, 9];
+export function ladderNote(rung: number): number {
+  const octave = Math.floor(rung / PENTATONIC.length);
+  return C5 * 2 ** (octave + PENTATONIC[rung % PENTATONIC.length] / 12);
+}
+
+/** A run of `count` rising notes from `rung`, `stepMs` apart; brighter with `sparkle`. */
+export function playRun(rung: number, count: number, stepMs: number, sparkle = false): void {
+  if (!context || !master || context.state !== 'running') return;
+  const notes: Note[] = [];
+  for (let i = 0; i < count; i++) {
+    const from = ladderNote(rung + i);
+    notes.push({ wave: 'triangle', from, ms: stepMs * 2.5, delayMs: i * stepMs, gain: 0.1 });
+    if (sparkle) notes.push({ wave: 'sine', from: from * 2, ms: stepMs * 2, delayMs: i * stepMs, gain: 0.035 });
+  }
+  playNotes(notes);
+}
+
+/** One short pluck on the ladder (tracing). */
+export function playRung(rung: number): void {
+  if (!context || !master || context.state !== 'running') return;
+  playNotes([{ wave: 'triangle', from: ladderNote(rung), ms: 90, gain: 0.08 }, { wave: 'sine', from: ladderNote(rung) * 2, ms: 60, gain: 0.025 }]);
+}
 
 let context: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -69,9 +98,13 @@ export function unlockAudio(): void {
 
 /** Plays a sound now; `pitch` scales every frequency (e.g. rising steps while tracing). */
 export function playSound(name: SoundName, pitch = 1): void {
+  playNotes(RECIPES[name], pitch);
+}
+
+function playNotes(notes: readonly Note[], pitch = 1): void {
   if (!context || !master || context.state !== 'running') return;
   const now = context.currentTime;
-  for (const note of RECIPES[name]) {
+  for (const note of notes) {
     const start = now + (note.delayMs ?? 0) / 1000;
     const end = start + note.ms / 1000;
     const osc = context.createOscillator();

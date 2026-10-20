@@ -88,6 +88,28 @@ export function Octopus({ color }: SpriteProps) {
   );
 }
 
+export function Whirlpool({ color }: SpriteProps) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+      <circle cx="50" cy="50" r="40" fill={color} opacity="0.35" />
+      <path
+        d="M50 50 m0 -4 a4 4 0 1 1 -4 4 a9 9 0 0 1 9 -9 a14 14 0 0 1 14 14 a19 19 0 0 1 -19 19 a24 24 0 0 1 -24 -24 a29 29 0 0 1 29 -29 a34 34 0 0 1 34 34"
+        fill="none"
+        stroke={OUTLINE}
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M50 50 m0 -4 a4 4 0 1 1 -4 4 a9 9 0 0 1 9 -9 a14 14 0 0 1 14 14 a19 19 0 0 1 -19 19 a24 24 0 0 1 -24 -24 a29 29 0 0 1 29 -29 a34 34 0 0 1 34 34"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function Plankton({ color }: SpriteProps) {
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">

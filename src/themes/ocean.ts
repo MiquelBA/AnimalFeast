@@ -12,4 +12,5 @@ export const OCEAN_THEME: Theme = {
     { id: 'orca', name: 'Orca', definite: "l'orca", color: '#1B2A3A', sprite: 'ocean/orca' },
   ],
   wild: { id: 'octopus', name: 'Pop', color: '#E86A92', sprite: 'ocean/octopus' },
+  whirl: { id: 'whirlpool', name: 'Remolí', color: '#5FD3E6', sprite: 'ocean/whirlpool' },
 };
