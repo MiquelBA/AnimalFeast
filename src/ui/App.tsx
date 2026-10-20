@@ -12,6 +12,7 @@ import { UI } from './uiConfig';
 import { DebugPanel, type DebugSetup } from './DebugPanel';
 import { useGame, type NewGameOptions } from './useGame';
 import { unlockAudio } from './audio';
+import { Ambient } from './fx/Ambient';
 import { finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
 import { loadFlag, saveFlag } from './storage';
 
@@ -88,6 +89,7 @@ export function App() {
 
   return (
     <div className="app">
+      <Ambient />
       <header className="hud">
         {debugEnabled && (
           <button className="debug-btn" onClick={() => openSheet('debug')} aria-label={STRINGS.debug.open}>⚙</button>

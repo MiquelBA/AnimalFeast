@@ -1,6 +1,7 @@
 // Sound and vibration for what happens on the board. Every cue is optional: the game reads the same without it.
 import type { TraceStatus } from '../engine/chains';
 import { playRun, playRung, playSound } from './audio';
+import { boostAmbient } from './fx/ambientEnergy';
 import type { Frame } from './frames';
 import { UI } from './uiConfig';
 import { vibrate } from './haptics';
@@ -23,6 +24,7 @@ export function frameCue(frame: Frame, sound: boolean): void {
   const play = (name: Parameters<typeof playSound>[0]) => { if (sound) playSound(name); };
   const texts = frame.effects.flatMap((e) => (e.type === 'text' ? [e] : []));
   const wave = texts.find((t) => t.text === 'wave')?.wave ?? 0;
+  if (wave) boostAmbient(UI.ambient.boost.wave * wave);
   if (frame.kind === 'eat') {
     // The chain's notes as a quick run; each wave of reactions starts higher up the ladder.
     const length = frame.ghosts.filter((g) => g.kind === 'swallow').length + 1;
@@ -31,9 +33,11 @@ export function frameCue(frame: Frame, sound: boolean): void {
     play('eat');
     vibrate(wave > 0 || length >= 4 ? 'longChain' : 'chain');
   } else if (frame.kind === 'whirl') {
+    boostAmbient(UI.ambient.boost.whirl);
     play('whirl');
     vibrate('frenzy');
   } else if (frame.kind === 'frenzy') {
+    boostAmbient(UI.ambient.boost.frenzy);
     play('frenzy');
     vibrate('frenzy');
   } else if (frame.kind === 'shuffle') {

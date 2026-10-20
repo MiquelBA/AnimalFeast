@@ -1,5 +1,5 @@
 // The board: tiles, tracing with the finger, and event-driven animations (FLIP with the Web Animations API).
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import { samePos } from '../engine/board';
 import { traceStatus, type TraceStatus } from '../engine/chains';
@@ -10,6 +10,7 @@ import type { Ghost } from './frames';
 import { STRINGS } from './strings';
 import { cellCentre, cellsAlong, extendPath, hitCell, type Point } from './trace';
 import { UI } from './uiConfig';
+import { FxLayer } from './fx/FxLayer';
 import type { Display, Floater } from './useGame';
 
 interface BoardProps {
@@ -80,6 +81,17 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
         { duration: UI.anim.pop, easing: 'ease-out', composite: 'add' },
       );
+    }
+    // Predators bite: squash and stretch where each chain ends.
+    if (display.kind === 'eat') {
+      for (const e of display.effects) {
+        if (e.type !== 'points') continue;
+        const t = display.tiles.find((x) => samePos(x.pos, e.pos));
+        tileEls.current.get(t?.animal.id ?? -1)?.querySelector('.tile-art')?.animate(
+          [{ transform: 'scale(1, 1)' }, { transform: 'scale(1.3, 0.8) rotate(-6deg)' }, { transform: 'scale(0.9, 1.15) rotate(4deg)' }, { transform: 'scale(1, 1)' }],
+          { duration: UI.fx.chompMs, easing: 'ease-out', composite: 'add' },
+        );
+      }
     }
     prevPos.current = new Map(display.tiles.map((t) => [t.animal.id, t.pos]));
     // Big moments shake the board a little.
@@ -224,11 +236,14 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
           );
         })}
         {cell > 0 && display.ghosts.map((g, i) => (
-          <GhostTile key={`${display.frameId}-${g.animal.id}`} ghost={g} index={i} cell={cell} theme={theme} tierCount={config.tiers.length} duration={display.duration} />
+          <GhostTile key={`${display.frameId}-${g.animal.id}`} ghost={g} index={i} cell={cell} theme={theme} tierCount={config.tiers.length} duration={display.duration} spin={display.kind === 'whirl'} />
         ))}
         {cell > 0 && flashes.map((f, i) => f.type === 'flash' && (
           <div key={`${display.frameId}-f${i}`} className="flash" style={{ left: (f.pos.col + 0.5) * cell, top: (f.pos.row + 0.5) * cell, width: cell, height: cell, animationDuration: `${UI.anim.frenzy}ms` }} />
         ))}
+        {flashLevel(display) > 0 && (
+          <div key={`${display.frameId}-screen`} className={`board-flash board-flash-${display.kind}`} style={{ opacity: flashLevel(display), animationDuration: `${display.duration}ms` }} />
+        )}
         <svg className={`trace trace-${status}`} width="100%" height="100%">
           {centres.length > 1 && (
             <polyline points={centres.map((c) => `${c.x},${c.y}`).join(' ')} strokeWidth={cell * 0.16} />
@@ -238,7 +253,7 @@ export function Board({ board, display, config, theme, hint, floaters, enabled, 
         </svg>
       </div>
       <FloaterLayer floaters={floaters} cell={cell} />
-      {cell > 0 && <Particles display={display} cell={cell} />}
+      <FxLayer display={display} cell={cell} area={areaRef} />
     </div>
   );
 }
@@ -283,7 +298,7 @@ const Tile = memo(function Tile({ animal, pos, cell, theme, config, mark, hinted
   );
 });
 
-function GhostTile({ ghost, index, cell, theme, tierCount, duration }: { ghost: Ghost; index: number; cell: number; theme: Theme; tierCount: number; duration: number }) {
+function GhostTile({ ghost, index, cell, theme, tierCount, duration, spin }: { ghost: Ghost; index: number; cell: number; theme: Theme; tierCount: number; duration: number; spin: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const level = animalLook(theme, ghost.animal, tierCount);
   useLayoutEffect(() => {
@@ -293,10 +308,21 @@ function GhostTile({ ghost, index, cell, theme, tierCount, duration }: { ghost: 
     const to = px(ghost.to, cell);
     const stagger = Math.min(index * 30, duration / 3);
     const opts: KeyframeAnimationOptions = { duration: duration - stagger, delay: stagger, easing: 'ease-in', fill: 'both' };
-    if (ghost.kind === 'swallow') el.animate([{ transform: `${from} scale(1)`, opacity: 1 }, { transform: `${to} scale(0.3)`, opacity: 0.2 }], opts);
+    if (ghost.kind === 'swallow' && spin) {
+      // Sucked into the whirlpool: spinning and shrinking on the way in.
+      el.animate([{ transform: `${from} rotate(0deg) scale(1)`, opacity: 1 }, { transform: `${to} rotate(540deg) scale(0.1)`, opacity: 0.3 }], { ...opts, easing: 'cubic-bezier(.55,0,.85,.4)' });
+    } else if (ghost.kind === 'swallow') el.animate([{ transform: `${from} scale(1)`, opacity: 1 }, { transform: `${to} scale(0.3)`, opacity: 0.2 }], opts);
     else if (ghost.kind === 'leave') el.animate([{ transform: `${from} scale(1)`, opacity: 1 }, { transform: `translate3d(${ghost.from.col * cell}px, ${(ghost.from.row - 0.7) * cell}px, 0) scale(0.8)`, opacity: 0 }], opts);
-    else el.animate([{ transform: `${from} scale(1)`, opacity: 1 }, { transform: `${from} scale(1.6)`, opacity: 0 }], { ...opts, easing: 'ease-out' });
-  }, [ghost, index, cell, duration]);
+    else {
+      // The frenzied predator swells, shakes and bursts.
+      el.animate([
+        { transform: `${from} scale(1) rotate(0deg)`, opacity: 1, filter: 'brightness(1)' },
+        { transform: `${from} scale(1.5) rotate(-10deg)`, opacity: 1, filter: 'brightness(1.6) drop-shadow(0 0 8px #FFD34E)', offset: 0.35 },
+        { transform: `${from} scale(1.7) rotate(10deg)`, opacity: 1, filter: 'brightness(2) drop-shadow(0 0 14px #FF6B6B)', offset: 0.6 },
+        { transform: `${from} scale(2.3) rotate(0deg)`, opacity: 0, filter: 'brightness(2.5)' },
+      ], { duration, easing: 'ease-out', fill: 'both' });
+    }
+  }, [ghost, index, cell, duration, spin]);
   return (
     <div ref={ref} className="tile ghost" style={{ width: cell, height: cell, transform: px(ghost.from, cell) }}>
       <div className="tile-inner"><div className="tile-art">{renderSprite(level.sprite, { color: level.color })}</div></div>
@@ -309,74 +335,14 @@ function longChain(display: Display): boolean {
   return display.kind === 'eat' && display.ghosts.filter((g) => g.kind === 'swallow').length >= 3;
 }
 
-const PARTICLE_COLORS = ['var(--gold)', 'var(--foam)', 'var(--white)', 'var(--green)'];
-
-/** A burst of small dots where a chain ends or a frenzy explodes. */
-interface Burst {
-  readonly id: number;
-  readonly pos: Pos;
-  readonly count: number;
-  readonly reach: number;
-  readonly duration: number;
-}
-
-/** The particle burst a frame starts, if any. */
-function burstOf(display: Display): Burst | null {
-  let pos: Pos | undefined;
-  if (display.kind === 'eat') {
-    const pts = display.effects.find((e) => e.type === 'points');
-    pos = pts?.type === 'points' ? pts.pos : undefined;
-    const count = longChain(display) ? UI.particles.longChain : UI.particles.chain;
-    return pos ? { id: display.frameId, pos, count, reach: UI.particles.reach, duration: UI.anim.eat + 180 } : null;
-  }
-  if (display.kind === 'frenzy' || display.kind === 'whirl') {
-    const flash = display.effects.find((e) => e.type === 'flash');
-    pos = flash?.type === 'flash' ? flash.pos : undefined;
-    return pos ? { id: display.frameId, pos, count: UI.particles.frenzy, reach: UI.particles.frenzyReach, duration: UI.anim.frenzy } : null;
-  }
-  return null;
-}
-
-/** Particle bursts outlive their frame: the fall that follows an eat doesn't cut them short. */
-function Particles({ display, cell }: { display: Display; cell: number }) {
-  const [bursts, setBursts] = useState<readonly Burst[]>([]);
-  const [seen, setSeen] = useState(display.frameId);
-  if (seen !== display.frameId) {
-    setSeen(display.frameId);
-    const burst = burstOf(display);
-    if (burst) setBursts((b) => [...b, burst]);
-  }
-  useEffect(() => {
-    if (!bursts.length) return;
-    const last = bursts[bursts.length - 1];
-    const id = window.setTimeout(() => setBursts((b) => b.filter((x) => x.id > last.id)), last.duration);
-    return () => window.clearTimeout(id);
-  }, [bursts]);
-  if (!bursts.length) return null;
-  return (
-    <div className="particles" aria-hidden="true">
-      {bursts.flatMap((burst) => Array.from({ length: burst.count }, (_, i) => {
-        const angle = (i / burst.count) * Math.PI * 2 + (i % 3) * 0.35;
-        const dist = cell * burst.reach * (0.6 + ((i * 37) % 10) / 25);
-        const size = cell * (i % 4 === 0 ? UI.particles.big : UI.particles.small);
-        return (
-          <span
-            key={`${burst.id}-${i}`}
-            style={{
-              left: (burst.pos.col + 0.5) * cell,
-              top: (burst.pos.row + 0.5) * cell,
-              background: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
-              width: size,
-              height: size,
-              animationDuration: `${burst.duration}ms`,
-              ['--dx' as string]: `${Math.cos(angle) * dist}px`,
-              ['--dy' as string]: `${Math.sin(angle) * dist}px`,
-            }}
-          />
-        );
-      }))}
-    </div>
-  );
+/** How strongly the whole board flashes on this frame (0 = not at all). */
+function flashLevel(display: Display): number {
+  const f = UI.fx.flash;
+  if (display.kind === 'frenzy') return f.frenzy;
+  if (display.kind === 'whirl') return f.whirl;
+  const wave = display.effects.find((e) => e.type === 'text' && e.text === 'wave');
+  const n = wave?.type === 'text' ? wave.wave ?? 0 : 0;
+  return n ? Math.min(f.maxWave, f.wave + f.perWave * (n - 1)) : 0;
 }
 
 function floaterText(f: Floater): { text: string; className: string } | null {
@@ -408,7 +374,7 @@ function FloaterLayer({ floaters, cell }: { floaters: readonly Floater[]; cell: 
         const pos = f.effect.type === 'points' || (f.effect.type === 'text' && f.effect.text === 'multiplier') ? f.effect.pos : undefined;
         const style = pos
           ? { left: (pos.col + 0.5) * cell, top: (pos.row + (f.effect.type === 'text' ? 0.85 : 0.4)) * cell, animationDuration: `${UI.anim.floatText}ms` }
-          : { animationDuration: `${UI.anim.floatText}ms` };
+          : { animationDuration: `${UI.anim.floatText}ms`, ['--grow' as string]: f.effect.type === 'text' && f.effect.wave ? 1 + UI.waveTextGrow * (f.effect.wave - 1) : 1 };
         return <div key={f.id} className={`floater ${shown.className}`} style={style}>{shown.text}</div>;
       })}
     </div>

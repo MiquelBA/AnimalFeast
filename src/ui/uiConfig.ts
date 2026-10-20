@@ -30,17 +30,37 @@ export const UI = {
     invalid: [10, 40, 10],
     gameOver: [40, 60, 40],
   } as Record<string, number[]>,
-  /** Celebrations: board shake (fraction of a cell) and particles per burst. */
+  /** Celebrations: board shake (fraction of a cell). */
   shake: { frenzy: 0.12, longChain: 0.05 },
-  particles: {
-    chain: 10, longChain: 16, frenzy: 26,
-    /** Sizes as fractions of a cell (every fourth one is big) and how far they fly, in cells. */
-    big: 0.2, small: 0.12, reach: 1.3, frenzyReach: 2.4,
+  /**
+   * Canvas effects (fx/recipes.ts). Sizes and speeds in cells (speeds per second); lives in ms,
+   * within maxAnimMs. spillPx lets effects spread past the board's edge.
+   */
+  fx: {
+    spillPx: 48,
+    chainParticles: 14, longChainExtra: 12, perWaveExtra: 6, sparks: 36,
+    dotSize: 0.07, chainSpeed: 4.5, chainLifeMs: 460, ringLifeMs: 400,
+    frenzyReach: 3.6, frenzyLifeMs: 500, whirlLifeMs: 480, whirlBubbles: 28,
+    /** Predator bite: squash and stretch when it eats. */
+    chompMs: 240,
+    /** Screen flash strength by moment (opacity), and how much more each wave adds. */
+    flash: { frenzy: 0.55, whirl: 0.4, wave: 0.12, perWave: 0.08, maxWave: 0.45 },
   },
   /**
    * Music of a move: an eaten chain plays up to maxRunNotes notes of the pentatonic ladder,
    * runStepMs apart; each wave starts rungsPerWave rungs higher (capped at maxWaveStep waves).
    */
+  /**
+   * Background bubbles (fx/Ambient.tsx). Speed in px/s; energy from big moments makes more and
+   * faster bubbles and a glow, and fades by decayPerSecond.
+   */
+  ambient: {
+    bubbles: 14, minRadius: 2, maxRadius: 7, speed: 28,
+    maxEnergy: 3, decayPerSecond: 1.6, speedBoost: 1.5, countBoost: 1.2, glow: 0.12,
+    boost: { wave: 0.5, whirl: 1, frenzy: 1.6 },
+  },
+  /** The reaction banner grows this much per extra wave. */
+  waveTextGrow: 0.18,
   sound: { maxRunNotes: 6, runStepMs: 55, rungsPerWave: 3, maxWaveStep: 4 },
   /** Clock ticks in the last seconds. */
   warningTickMs: 5000,

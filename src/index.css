@@ -160,7 +160,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .float-whirl { top: 30%; font-size: 34px; color: var(--foam); }
 .tile.whirl .tile-art { animation: whirl-spin 1.6s linear infinite; }
 @keyframes whirl-spin { to { rotate: 360deg; } }
-.float-wave { top: 62%; font-size: 30px; color: var(--foam); }
+.float-wave { top: 62%; font-size: calc(30px * var(--grow, 1)); color: var(--foam); }
 
 /* Energy */
 .pips {
@@ -218,21 +218,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .trace-invalid circle { fill: var(--danger); }
 
 /* Particle bursts */
-.particles { position: absolute; inset: var(--pad); pointer-events: none; }
-.particles span {
+/* Canvas effects layer, a little larger than the board so bursts can spill over */
+.fx-layer { position: absolute; pointer-events: none; z-index: 2; }
+.fx-layer canvas { display: block; width: 100%; height: 100%; }
+.ambient { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+
+/* Whole-board flash on big moments */
+.board-flash {
   position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.55);
-  animation-name: particle;
-  animation-timing-function: cubic-bezier(.2, .7, .3, 1);
+  inset: 0;
+  pointer-events: none;
+  animation-name: board-flash;
+  animation-timing-function: ease-out;
   animation-fill-mode: forwards;
 }
-@keyframes particle {
-  from { opacity: 1; translate: 0 0; scale: 1; }
-  60% { opacity: 1; }
-  to { opacity: 0; translate: var(--dx) var(--dy); scale: 0.5; }
-}
+.board-flash-eat { background: radial-gradient(circle, rgba(184, 236, 245, 0.9), rgba(184, 236, 245, 0.2)); }
+.board-flash-frenzy { background: radial-gradient(circle, rgba(255, 211, 78, 1), rgba(255, 107, 107, 0.55)); }
+.board-flash-whirl { background: radial-gradient(circle, rgba(95, 211, 230, 0.2), rgba(8, 59, 102, 0.9)); }
+@keyframes board-flash { from { scale: 1; } 15% { scale: 1; } to { opacity: 0; } }
 
 /* Floating texts */
 .floaters { position: absolute; inset: var(--pad); pointer-events: none; }
@@ -253,7 +256,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .float-banner { left: 50%; transform: translate(-50%, -50%); animation-name: banner; }
 .float-combo { top: 30%; font-size: 34px; color: var(--gold); }
-.float-frenzy { top: 50%; font-size: 46px; color: var(--white); text-shadow: 0 3px 0 var(--danger), 0 0 18px var(--gold); }
+.float-frenzy { top: 50%; font-size: 50px; color: var(--white); text-shadow: 0 3px 0 var(--danger), 0 0 18px var(--gold), 0 0 32px var(--danger); animation-name: frenzy-banner; }
+@keyframes frenzy-banner {
+  from { opacity: 0; scale: 0.3; rotate: -12deg; }
+  20% { opacity: 1; scale: 1.45; rotate: 6deg; }
+  40% { scale: 0.95; rotate: -3deg; }
+  75% { opacity: 1; scale: 1.05; rotate: 0deg; }
+  to { opacity: 0; scale: 1.2; }
+}
 .float-time { top: 12%; font-size: 26px; color: var(--green); }
 .float-shuffle { top: 50%; font-size: 26px; color: var(--foam); }
 @keyframes banner {
@@ -453,7 +463,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .link-btn { border: none; background: none; text-decoration: underline; font-size: 14px; padding: 6px 0; opacity: 0.9; }
 
 @media (prefers-reduced-motion: reduce) {
-  .particles, .confetti { display: none; }
+  .fx-layer, .board-flash, .confetti, .ambient { display: none; }
   .tile.whirl .tile-art { animation: none; }
   .clock.warning, .tile.hint .tile-inner, .tile.near .tile-inner::before, .tile.golden .tile-inner::after { animation: none; }
 }
