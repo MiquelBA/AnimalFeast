@@ -1,6 +1,6 @@
 // All user-facing text (Catalan).
 export const STRINGS = {
-  title: 'ANIMAL FEAST',
+  title: 'ORCA LUNCH',
   score: 'Punts',
   best: 'Rècord',
   help: 'Ajuda',
@@ -12,9 +12,21 @@ export const STRINGS = {
   pausedHint: 'Toca per continuar quan vulguis.',
   go: 'Som-hi!',
   tapToStart: 'Toca per començar',
+  tutorial: {
+    title: 'Com es juga',
+    goal: 'Completa la cadena tròfica!',
+    yum: 'Ñam!',
+    points: (lengths: readonly number[], diagonal: boolean, reverse: boolean) => [
+      `Llisca el dit per sobre de ${lengths.join(', ').replace(/, (\d+)$/, ' o $1')} animals seguits, del més petit al més gran${reverse || diagonal ? ` (${[reverse && 'també al revés', diagonal && (reverse ? 'en diagonal' : 'també en diagonal')].filter(Boolean).join(' i ')})` : ''}.`,
+      'Cada animal ha de ser just el següent de la cadena.',
+      'El més gran es menja els altres i guanyes punts. Com més llarga la cadena, més punts!',
+    ],
+    go: 'A jugar!',
+    again: 'Mira com es juga',
+  },
   share: {
     button: 'Repta un amic',
-    text: (score: string) => `He fet ${score} punts a Animal Feast 🐋 Em superes?`,
+    text: (score: string) => `He fet ${score} punts a Orca Lunch 🐋 Em superes?`,
   },
   install: {
     button: "Instal·la l'app",

@@ -86,9 +86,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Board low on the screen, closer to the thumb. */
-  justify-content: flex-end;
-  padding-bottom: 12px;
+  /* Board in the middle of the free space, a touch low (closer to the thumb) but never stuck to the bottom. */
+  justify-content: center;
+  padding: 20px 0 8px;
 }
 .board {
   position: relative;
@@ -479,6 +479,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 18px;
   font-weight: 900;
 }
+.help-links { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+
+/* First-game walkthrough */
+.tutorial-overlay { align-items: center; }
+.tutorial h2 { margin-bottom: 2px; }
+.sheet .tutorial-goal { margin-bottom: 10px; font-size: 18px; color: var(--gold); font-weight: 900; }
+.tutorial-board { position: relative; margin: 0 auto; border-radius: 16px; background: rgba(6, 42, 74, 0.45); }
+.tutorial-cell { position: absolute; padding: 5px; transition: transform 220ms, opacity 260ms; }
+.tutorial-cell .tile-art { width: 100%; height: 100%; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: box-shadow 150ms, background 150ms; }
+.tutorial-cell .tile-art svg { width: 100%; height: 100%; }
+.tutorial-cell.on .tile-art { box-shadow: inset 0 0 0 3px var(--green); background: rgba(69, 199, 111, 0.28); }
+.tutorial-cell.gone { transform: scale(0.2); opacity: 0; }
+.tutorial-cell.chomp { animation: tutorial-chomp 420ms ease-out; }
+@keyframes tutorial-chomp { 30% { transform: scale(1.4, 0.8) rotate(-8deg); } 60% { transform: scale(0.9, 1.2) rotate(5deg); } }
+.tutorial-line { position: absolute; inset: 0; pointer-events: none; }
+.tutorial-line polyline { fill: none; stroke: var(--white); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.tutorial-finger { position: absolute; left: 0; top: 0; font-size: 40px; line-height: 1; transition: transform 380ms ease-in-out; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4)); }
+.tutorial-points { position: absolute; translate: -50% -50%; font-size: 26px; font-weight: 900; color: var(--gold); text-shadow: 0 2px 0 var(--ink); animation: rise 900ms ease-out forwards; }
+.sheet .tutorial-chain { margin: 10px 0 4px; font-size: 14px; color: var(--foam); font-weight: 800; }
 .start-links { display: flex; gap: 18px; margin-top: 4px; font-size: 15px; }
 .sheet.feedback textarea {
   width: 100%;

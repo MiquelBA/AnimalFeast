@@ -10,6 +10,7 @@ import { leaderboardEnabled } from '../leaderboard/config';
 import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
 import { shareScore } from './share';
+import { TutorialModal } from './Tutorial';
 import { scenarioById } from '../scenarios';
 import { themeLevels, type Theme } from '../themes';
 import { Board } from './Board';
@@ -37,7 +38,7 @@ const theme = scenario.theme;
 const urlVariant = urlParam('variant');
 const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : scenario.config;
 
-type Sheet = 'help' | 'debug' | 'ranking' | 'feedback' | 'install';
+type Sheet = 'help' | 'debug' | 'ranking' | 'feedback' | 'install' | 'tutorial';
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -107,6 +108,15 @@ export function App() {
     pausedForSheet.current = g.phase === 'playing' || g.phase === 'ready';
     g.pause();
     setSheet(which);
+  };
+  // The first game starts with the walkthrough; it can be seen again from the help.
+  const startGame = () => {
+    if (loadFlag(UI.tutorialKey, false)) g.begin();
+    else setSheet('tutorial');
+  };
+  const finishTutorial = () => {
+    saveFlag(UI.tutorialKey, true);
+    if (g.phase === 'start') { setSheet(null); g.begin(); } else closeSheet();
   };
   const closeSheet = () => {
     setSheet(null);
@@ -196,16 +206,25 @@ export function App() {
         </button>
       </footer>
 
-      {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined} />}
+      {sheet === 'help' && (
+        <HelpModal
+          theme={theme}
+          config={config}
+          onClose={closeSheet}
+          onTutorial={() => setSheet('tutorial')}
+          onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
+        />
+      )}
       {sheet === 'debug' && <DebugPanel scenario={scenario} game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
       {sheet === 'ranking' && <RankingModal ranking={scenario.rankingId} onClose={closeSheet} />}
       {sheet === 'feedback' && <FeedbackModal context={{ scenario: scenario.id, phase: g.phase, score: g.game.score }} onClose={closeSheet} />}
       {sheet === 'install' && <InstallModal onClose={closeSheet} />}
+      {sheet === 'tutorial' && <TutorialModal theme={theme} config={config} onDone={finishTutorial} />}
       {g.phase === 'start' && !sheet && (
         <StartScreen
           theme={theme}
           tierCount={config.tiers.length}
-          onStart={g.begin}
+          onStart={startGame}
           onRanking={leaderboardEnabled() ? () => openSheet('ranking') : undefined}
           onFeedback={leaderboardEnabled() ? () => openSheet('feedback') : undefined}
           onInstall={install ? () => void offerInstall() : undefined}
@@ -268,7 +287,7 @@ function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCoun
   );
 }
 
-function HelpModal({ theme, config, onClose, onFeedback }: { theme: Theme; config: GameConfig; onClose: () => void; onFeedback?: () => void }) {
+function HelpModal({ theme, config, onClose, onTutorial, onFeedback }: { theme: Theme; config: GameConfig; onClose: () => void; onTutorial: () => void; onFeedback?: () => void }) {
   const tierCount = config.tiers.length;
   const levels = themeLevels(theme, tierCount);
   const rules = STRINGS.helpRules({
@@ -290,7 +309,10 @@ function HelpModal({ theme, config, onClose, onFeedback }: { theme: Theme; confi
         <ul className="rules">
           {rules.map((r) => <li key={r}>{r}</li>)}
         </ul>
-        {onFeedback && <p><button type="button" className="link-btn" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button></p>}
+        <p className="help-links">
+          <button type="button" className="link-btn" onClick={onTutorial}>👆 {STRINGS.tutorial.again}</button>
+          {onFeedback && <button type="button" className="link-btn" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button>}
+        </p>
         <button className="primary-btn" onClick={onClose}>{STRINGS.close}</button>
       </div>
     </div>
