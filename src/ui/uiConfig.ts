@@ -5,6 +5,8 @@ export const UI = {
   boardMaxPx: 480,
   /** A cell is marked only when the finger is within this fraction of the cell size from its centre. */
   hitRadius: 0.35,
+  /** Countdown before each game: 3, 2, 1 one step apart, then "go" stays on screen goMs. */
+  countdown: { steps: 3, stepMs: 750, goMs: 700 },
   /** Idle time before a possible chain glows. */
   hintDelayMs: 5000,
   /** Animation durations; no normal animation goes over maxAnimMs. */

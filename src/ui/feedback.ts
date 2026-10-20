@@ -53,6 +53,18 @@ export function finishCue(newBest: boolean, sound: boolean): void {
   vibrate('gameOver');
 }
 
+/** 3, 2, 1 rise in pitch; 0 is "go". */
+export function countdownCue(count: number, sound: boolean): void {
+  if (count === 0) {
+    if (sound) playSound('go');
+    boostAmbient(UI.ambient.boost.wave);
+    vibrate('chain');
+  } else {
+    if (sound) playSound('count', 2 ** ((UI.countdown.steps - count) * 2 / 12));
+    vibrate('step');
+  }
+}
+
 export function warningCue(sound: boolean): void {
   if (sound) playSound('warning');
 }

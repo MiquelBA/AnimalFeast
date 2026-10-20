@@ -1,4 +1,4 @@
-// Game session for the UI: engine state, clock, animation queue, hint, pause and best score.
+// Game session for the UI: engine state, countdown, clock, animation queue, hint, pause and best score.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { legalChains } from '../engine/chains';
 import { GAME_CONFIG } from '../engine/config';
@@ -8,6 +8,7 @@ import { buildFrames, tilesOf, type Effect, type Frame, type FrameKind } from '.
 import { loadBest, saveBest } from './storage';
 import { UI } from './uiConfig';
 
+/** 'ready' is the 3, 2, 1 countdown before the clock starts. */
 export type Phase = 'ready' | 'playing' | 'paused' | 'over';
 
 /** What the board draws right now: a frame of a move's animation, or the idle board. */
@@ -53,6 +54,8 @@ function pickHint(board: Board, config: GameConfig): readonly Pos[] | null {
 export interface GameFeedback {
   readonly onFrame?: (frame: Frame) => void;
   readonly onFinish?: (newBest: boolean) => void;
+  /** Each countdown number (3, 2, 1), then 0 as play starts. */
+  readonly onCountdown?: (count: number) => void;
 }
 
 export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameFeedback = {}) {
@@ -78,6 +81,12 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
   const [activity, setActivity] = useState(0);
+  /** The number shown by the countdown (0 = go), or null when none is shown. */
+  const [countdown, setCountdown] = useState<number | null>(null);
+  /** Changes with every new game, so a new countdown starts even if one was running. */
+  const [round, setRound] = useState(0);
+  /** Pausing during the countdown makes resuming count down again. */
+  const pausedInCountdown = useRef(false);
   const timers = useRef<number[]>([]);
   const frameTimer = useRef<number | null>(null);
   const seq = useRef(0);
@@ -119,8 +128,37 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     return () => cancelAnimationFrame(raf);
   }, [clockStopped, finish]);
 
-  const pause = useCallback(() => { if (phaseRef.current === 'playing') setPhase('paused'); }, [setPhase]);
-  const resume = useCallback(() => { if (phaseRef.current === 'paused') setPhase('playing'); }, [setPhase]);
+  const pause = useCallback(() => {
+    const now = phaseRef.current;
+    if (now !== 'playing' && now !== 'ready') return;
+    pausedInCountdown.current = now === 'ready';
+    setPhase('paused');
+  }, [setPhase]);
+  const resume = useCallback(() => {
+    if (phaseRef.current === 'paused') setPhase(pausedInCountdown.current ? 'ready' : 'playing');
+  }, [setPhase]);
+
+  // Countdown: 3, 2, 1, go! The clock starts on "go".
+  useEffect(() => {
+    if (phase !== 'ready') return;
+    const { steps, stepMs } = UI.countdown;
+    const show = (count: number) => { setCountdown(count); feedbackRef.current.onCountdown?.(count); };
+    show(steps);
+    const ids = Array.from({ length: steps }, (_, i) => window.setTimeout(() => {
+      const count = steps - 1 - i;
+      show(count);
+      if (count === 0) setPhase('playing');
+    }, (i + 1) * stepMs));
+    return () => {
+      ids.forEach((id) => window.clearTimeout(id));
+      setCountdown((c) => (c === 0 ? c : null));
+    };
+  }, [phase, round, setPhase]);
+  useEffect(() => {
+    if (countdown !== 0) return;
+    const id = window.setTimeout(() => setCountdown(null), UI.countdown.goMs);
+    return () => window.clearTimeout(id);
+  }, [countdown]);
 
   // Auto-pause when the player leaves the app.
   useEffect(() => {
@@ -134,7 +172,7 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
   }, [pause]);
 
   // Hint: after a while without playing, a possible chain glows.
-  const hintable = (phase === 'ready' || phase === 'playing') && !animating;
+  const hintable = phase === 'playing' && !animating;
   useEffect(() => {
     if (!hintable) return;
     const id = window.setTimeout(() => setHint(pickHint(gameRef.current.board, gameRef.current.config)), UI.hintDelayMs);
@@ -185,8 +223,7 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
 
   /** Plays a traced chain. Returns false (and changes nothing) when it can't be played. */
   const play = useCallback((path: readonly Pos[]): boolean => {
-    const phaseNow = phaseRef.current;
-    if (phaseNow !== 'ready' && phaseNow !== 'playing') return false;
+    if (phaseRef.current !== 'playing') return false;
     if (animatingRef.current && !settlingRef.current) return false;
     const before = gameRef.current;
     const move = { path, atMs: before.elapsedMs };
@@ -194,11 +231,10 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     if (animatingRef.current) settle(); // released during the last fall: skip to its end
     const { state, events } = applyMove(before, move);
     gameRef.current = state;
-    if (phaseNow === 'ready') setPhase('playing');
     setAnimating(true);
     runFrames(buildFrames(before.board, events));
     return true;
-  }, [runFrames, setAnimating, setPhase, settle]);
+  }, [runFrames, setAnimating, settle]);
 
   const restart = useCallback((options: NewGameOptions = {}) => {
     stopFrames();
@@ -216,6 +252,8 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     setNewBest(false);
     setSettling(false);
     setAnimating(false);
+    pausedInCountdown.current = false;
+    setRound((r) => r + 1);
     setPhase('ready');
   }, [setAnimating, setPhase, setSettling, stopFrames]);
 
@@ -225,7 +263,7 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
   }, []);
 
   return {
-    game, config, display, phase, animating, settling, clockMs, best, records, newBest, floaters, hint,
+    game, config, display, phase, countdown, animating, settling, clockMs, best, records, newBest, floaters, hint,
     play, pause, resume, restart, noteActivity,
   };
 }

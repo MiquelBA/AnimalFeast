@@ -14,7 +14,7 @@ import { useGame, type NewGameOptions } from './useGame';
 import { unlockAudio } from './audio';
 import { startMusic, stopMusic } from './music';
 import { Ambient } from './fx/Ambient';
-import { finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
+import { countdownCue, finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
 import { loadFlag, saveFlag } from './storage';
 
 const theme = DEFAULT_THEME;
@@ -42,6 +42,7 @@ export function App() {
   const g = useGame(startConfig, {
     onFrame: (frame) => frameCue(frame, soundRef.current),
     onFinish: (newBest) => finishCue(newBest, soundRef.current),
+    onCountdown: (count) => countdownCue(count, soundRef.current),
   });
   const config = g.config;
 
@@ -88,7 +89,7 @@ export function App() {
   const pausedForSheet = useRef(false);
 
   const openSheet = (which: 'help' | 'debug') => {
-    pausedForSheet.current = g.phase === 'playing';
+    pausedForSheet.current = g.phase === 'playing' || g.phase === 'ready';
     g.pause();
     setSheet(which);
   };
@@ -104,7 +105,7 @@ export function App() {
     g.restart(options);
   };
 
-  const boardEnabled = (g.phase === 'ready' || g.phase === 'playing') && (!g.animating || g.settling) && !sheet;
+  const boardEnabled = g.phase === 'playing' && (!g.animating || g.settling) && !sheet;
   const byMoves = config.mode === 'moves';
   const warning = !byMoves && g.phase === 'playing' && g.clockMs <= UI.clockWarningMs;
 
@@ -158,8 +159,17 @@ export function App() {
           onTraceStep={(length, status) => traceStepCue(length, status, sound)}
           onReject={() => rejectCue(sound)}
         />
-        <p className={`start-hint${g.phase === 'ready' ? '' : ' hidden'}`}>{STRINGS.tapToStart}</p>
       </main>
+
+      {g.countdown !== null && !sheet && (
+        <div className="countdown" aria-live="assertive">
+          <span
+            key={g.countdown}
+            className={g.countdown ? 'count' : 'count go'}
+            style={{ animationDuration: `${g.countdown ? UI.countdown.stepMs : UI.countdown.goMs}ms` }}
+          >{g.countdown || STRINGS.go}</span>
+        </div>
+      )}
 
       <footer className="bottom">
         <button className="round-btn" onClick={() => openSheet('help')} aria-label={STRINGS.help}>?</button>

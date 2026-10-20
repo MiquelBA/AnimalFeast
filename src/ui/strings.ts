@@ -12,7 +12,7 @@ export const STRINGS = {
   resume: 'Continua',
   paused: 'En pausa',
   pausedHint: 'Toca per continuar quan vulguis.',
-  tapToStart: 'Traça una cadena per començar',
+  go: 'Som-hi!',
   helpTitle: 'Com es juga',
   helpChain: 'La cadena alimentària',
   /** Help rules for the current rules: chain lengths, length multipliers and who gathers energy. */

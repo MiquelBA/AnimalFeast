@@ -273,8 +273,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
   to { opacity: 0; scale: 1.05; }
 }
 
-.start-hint { margin: 10px 0 0; font-size: 15px; opacity: 0.9; transition: opacity 200ms; }
-.start-hint.hidden { opacity: 0; }
+/* Countdown before each game: big numbers that pop in the middle of the screen. */
+.countdown {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.countdown .count {
+  font-size: 120px;
+  font-weight: 900;
+  color: var(--white);
+  text-shadow: 0 5px 0 var(--ink), 0 0 24px rgba(255, 211, 78, 0.8);
+  animation: count-pop ease-out forwards;
+}
+.countdown .count.go {
+  font-size: 72px;
+  color: var(--gold);
+  text-shadow: 0 4px 0 var(--danger), 0 0 22px var(--gold), 0 0 40px var(--danger);
+  animation: frenzy-banner ease-out forwards;
+}
+@keyframes count-pop {
+  from { opacity: 0; scale: 2.4; }
+  25% { opacity: 1; scale: 0.9; }
+  45% { scale: 1.08; }
+  80% { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.6; }
+}
 
 /* Bottom bar, within thumb reach */
 .bottom {

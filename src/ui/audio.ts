@@ -7,7 +7,7 @@
 
 export type SoundName =
   | 'eat' | 'golden' | 'combo' | 'frenzy'
-  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest' | 'whirl';
+  | 'timeBonus' | 'invalid' | 'shuffle' | 'warning' | 'gameOver' | 'newBest' | 'whirl' | 'count' | 'go';
 
 /** One voice: an oscillator, or filtered noise ('noise') whose filter frequency glides from → to. */
 export interface Note {
@@ -56,6 +56,18 @@ const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
     { wave: 'noise', from: 5000, to: 300, ms: 700, delayMs: 230, gain: 0.22, filter: 'lowpass', q: 0.7 },
     ...[C5, E5, G5, C6].map((from, i): Note => ({ wave: 'sawtooth', from, ms: 650, delayMs: 240 + i * 25, gain: 0.035, attackMs: 10 })),
     ...[C4, G4].map((from): Note => ({ wave: 'square', from, ms: 600, delayMs: 240, gain: 0.03 })),
+  ],
+  // Countdown: a bright blip with a soft thump for 3, 2, 1, then "go" lands big.
+  count: [
+    { wave: 'square', from: G5, ms: 140, gain: 0.05 },
+    { wave: 'sine', from: G5 * 2, ms: 120, gain: 0.04 },
+    boom(130, 0.25, 0, 260),
+  ],
+  go: [
+    boom(160, 0.5, 0, 600),
+    { wave: 'noise', from: 6000, to: 500, ms: 500, gain: 0.14, filter: 'highpass', q: 0.7 },
+    ...[C5, E5, G5, C6].map((from, i): Note => ({ wave: 'sawtooth', from, ms: 520, delayMs: i * 20, gain: 0.035, attackMs: 10 })),
+    { wave: 'triangle', from: C6, to: C7, ms: 260, gain: 0.05 },
   ],
   timeBonus: [{ wave: 'sine', from: E6, ms: 140, gain: 0.07 }, { wave: 'sine', from: G6, ms: 160, delayMs: 70, gain: 0.06 }],
   invalid: [{ wave: 'triangle', from: 190, to: 140, ms: 130, gain: 0.09 }],
