@@ -426,6 +426,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .final-stats dt { font-weight: 600; font-size: 14px; }
 .final-stats dd { margin: 0; font-weight: 900; }
 
+/* Shared leaderboard (end screen) */
+.leaderboard { margin: 12px 0 4px; padding: 10px 12px; border-radius: 14px; background: rgba(6, 42, 74, 0.35); text-align: left; }
+.leaderboard h3 { margin: 0 0 6px; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; }
+.lb-name label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 700; }
+.lb-name div { display: flex; gap: 8px; }
+.lb-name input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 2px solid rgba(184, 236, 245, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* 16px stops iPhone zooming in */
+}
+.lb-name button { padding: 0 16px; border: none; border-radius: 12px; background: var(--gold); color: var(--ink); font: inherit; font-weight: 900; }
+.lb-name button:disabled { opacity: 0.5; }
+.lb-player, .lb-note, .lb-rank { margin: 4px 0; font-size: 14px; font-weight: 700; text-align: center; }
+.lb-rank { color: var(--gold); font-weight: 900; }
+.link-btn { padding: 0; border: none; background: none; color: var(--foam); font: inherit; text-decoration: underline; cursor: pointer; }
+.lb-list { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.lb-list li { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 10px; font-size: 15px; }
+.lb-list li.me { background: rgba(255, 211, 78, 0.25); outline: 2px solid var(--gold); }
+.lb-pos { width: 22px; text-align: right; opacity: 0.8; }
+.lb-who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.lb-score { font-weight: 900; color: var(--gold); }
+.game-over .primary-btn { position: sticky; bottom: 0; }
+
 /* End screen */
 .sheet.game-over { position: relative; overflow: visible; padding-top: 34px; }
 .mascot {

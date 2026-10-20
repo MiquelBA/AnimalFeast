@@ -5,6 +5,8 @@ import { makeConfig } from '../engine/config';
 import { VARIANTS } from '../engine/variants';
 import { minEnergyGain } from '../engine/score';
 import type { GameConfig, GameStats } from '../engine/types';
+import { Leaderboard } from '../leaderboard/Leaderboard';
+import { leaderboardEnabled } from '../leaderboard/config';
 import { scenarioById } from '../scenarios';
 import { themeLevels, type Theme } from '../themes';
 import { Board } from './Board';
@@ -205,6 +207,7 @@ export function App() {
           stats={g.game}
           best={g.best}
           newBest={g.newBest}
+          ranking={g.records && leaderboardEnabled() ? scenario.rankingId : null}
           theme={theme}
           tierCount={config.tiers.length}
           onRestart={() => { setDebugSetup((d) => ({ variant: d.variant })); g.restart(); }}
@@ -336,8 +339,8 @@ function StartScreen({ theme, tierCount, onStart }: { theme: Theme; tierCount: n
   );
 }
 
-function GameOver({ title, stats, best, newBest, theme, tierCount, onRestart }: {
-  title: string; stats: GameStats; best: number; newBest: boolean; theme: Theme; tierCount: number; onRestart: () => void;
+function GameOver({ title, stats, best, newBest, ranking, theme, tierCount, onRestart }: {
+  title: string; stats: GameStats; best: number; newBest: boolean; ranking: string | null; theme: Theme; tierCount: number; onRestart: () => void;
 }) {
   const score = useCountUp(stats.score, UI.countUpMs);
   const top = themeLevels(theme, tierCount)[tierCount - 1];
@@ -359,6 +362,7 @@ function GameOver({ title, stats, best, newBest, theme, tierCount, onRestart }: 
         <div className="final-label">{STRINGS.statScore}</div>
         <div className="final-score" aria-label={String(stats.score)}>{score}</div>
         {newBest && <div className="new-best">{STRINGS.newBest}</div>}
+        {ranking && <Leaderboard ranking={ranking} score={stats.score} />}
         <dl className="final-stats">
           {rows.map(([label, value], i) => (
             <div key={label} style={{ animationDelay: `${120 + i * 60}ms` }}><dt>{label}</dt><dd>{value}</dd></div>

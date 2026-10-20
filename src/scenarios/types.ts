@@ -15,4 +15,6 @@ export interface Scenario {
   readonly theme: Theme;
   /** Where this scenario's best score is kept on the device. */
   readonly recordKey: string;
+  /** This scenario's table in the shared leaderboard; a new id when its rules change the scoring. */
+  readonly rankingId: string;
 }

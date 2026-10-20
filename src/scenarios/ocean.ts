@@ -10,4 +10,5 @@ export const OCEAN: Scenario = {
   theme: OCEAN_THEME,
   // v0.6 changed scoring a lot, so its record started fresh under this key.
   recordKey: 'animal-feast:best:v0.6',
+  rankingId: 'ocean-v0.6',
 };
