@@ -22,7 +22,8 @@ export interface ThemeSpecial {
 export interface Theme {
   readonly id: string;
   readonly worldName: string;
-  readonly background: { readonly from: string; readonly to: string };
+  /** The screen's colours (CSS variables of the same name): sea gradient top to bottom, light accent, ink. */
+  readonly palette: { readonly lagoon: string; readonly sea: string; readonly deep: string; readonly foam: string; readonly ink: string };
   /**
    * The world's full food chain, lowest first. A game with fewer tiers uses the top ones
    * (4 tiers in the ocean: sardine to orca; 5 tiers adds plankton below).

@@ -3,7 +3,7 @@ import type { Theme } from './types';
 export const OCEAN_THEME: Theme = {
   id: 'ocean',
   worldName: 'Oceà',
-  background: { from: '#30C7D8', to: '#083B66' },
+  palette: { lagoon: '#30C7D8', sea: '#087FBD', deep: '#083B66', foam: '#B8ECF5', ink: '#062A4A' },
   levels: [
     { id: 'plankton', name: 'Plàncton', definite: 'el plàncton', color: '#9BE3A8', sprite: 'ocean/plankton' },
     { id: 'sardine', name: 'Sardina', definite: 'la sardina', color: '#B8ECF5', sprite: 'ocean/sardine' },

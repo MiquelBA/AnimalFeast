@@ -20,8 +20,6 @@ export const UI = {
   clockWarningMs: 10_000,
   /** Combo text by combo count (index = count − 2, last one repeats). */
   comboTextKeys: ['comboGreat', 'comboAmazing', 'comboFeast'] as const,
-  /** v0.6 changed scoring a lot, so its record starts fresh. */
-  bestScoreKey: 'animal-feast:best:v0.6',
   soundKey: 'animal-feast:sound',
   musicKey: 'animal-feast:music',
   /** Vibration patterns (ms on/off). */

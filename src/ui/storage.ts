@@ -1,18 +1,17 @@
 // localStorage access, always guarded (private mode, blocked storage…).
-import { UI } from './uiConfig';
 
-export function loadBest(): number {
+export function loadBest(key: string): number {
   try {
-    const v = Number(localStorage.getItem(UI.bestScoreKey));
+    const v = Number(localStorage.getItem(key));
     return Number.isFinite(v) ? v : 0;
   } catch {
     return 0;
   }
 }
 
-export function saveBest(score: number): void {
+export function saveBest(key: string, score: number): void {
   try {
-    localStorage.setItem(UI.bestScoreKey, String(score));
+    localStorage.setItem(key, String(score));
   } catch {
     // Storage unavailable: the record just isn't kept.
   }

@@ -1,9 +1,9 @@
 // Playtesting panel (?debug=1): seed, mode, rule variant, typed board and move-log export.
 import { useState } from 'react';
-import { GAME_CONFIG } from '../engine/config';
 import { boardToString, parseBoard } from '../engine/notation';
 import type { Board, GameConfig, GameMode, GameState } from '../engine/types';
 import { VARIANTS, variantConfig } from '../engine/variants';
+import type { Scenario } from '../scenarios';
 import { makeLog } from './debugLog';
 import { STRINGS } from './strings';
 import type { NewGameOptions } from './useGame';
@@ -16,13 +16,14 @@ export interface DebugSetup {
 }
 
 interface DebugPanelProps {
+  readonly scenario: Scenario;
   readonly game: GameState;
   readonly setup: DebugSetup;
   readonly onStart: (options: NewGameOptions, setup: DebugSetup) => void;
   readonly onClose: () => void;
 }
 
-export function DebugPanel({ game, setup, onStart, onClose }: DebugPanelProps) {
+export function DebugPanel({ scenario, game, setup, onStart, onClose }: DebugPanelProps) {
   const [seed, setSeed] = useState(String(game.seed));
   const [mode, setMode] = useState<GameMode>(game.config.mode);
   const [variant, setVariant] = useState(setup.variant);
@@ -40,8 +41,8 @@ export function DebugPanel({ game, setup, onStart, onClose }: DebugPanelProps) {
       setMessage(T.badBoard);
       return;
     }
-    const config: GameConfig = variant === 'base' && mode === GAME_CONFIG.mode && !board
-      ? GAME_CONFIG
+    const config: GameConfig = variant === 'base' && mode === scenario.config.mode && !board
+      ? scenario.config
       : variantConfig(variant, { mode });
     onStart({ seed: seedValue, config, board }, { variant, startBoard: board ? boardText.trim() : undefined });
   };

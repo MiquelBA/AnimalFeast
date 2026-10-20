@@ -1,10 +1,10 @@
 // Game session for the UI: engine state, countdown, clock, animation queue, hint, pause and best score.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { legalChains } from '../engine/chains';
-import { GAME_CONFIG } from '../engine/config';
 import { applyMove, createGame, isLegalMove, remainingMs, tick } from '../engine/game';
 import type { Board, GameConfig, GameState, Pos } from '../engine/types';
 import { buildFrames, tilesOf, type Effect, type Frame, type FrameKind } from './frames';
+import type { Scenario } from '../scenarios';
 import { loadBest, saveBest } from './storage';
 import { UI } from './uiConfig';
 
@@ -61,7 +61,8 @@ export interface GameFeedback {
   readonly onCountdown?: (count: number) => void;
 }
 
-export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameFeedback = {}) {
+/** A game in `scenario`; `initialConfig` (a debug variant) defaults to the scenario's rules. */
+export function useGame(scenario: Scenario, initialConfig: GameConfig = scenario.config, feedback: GameFeedback = {}) {
   const feedbackRef = useRef(feedback);
   useEffect(() => { feedbackRef.current = feedback; });
   const [game, setGame] = useState(() => createGame({ seed: newSeed(), config: initialConfig }));
@@ -76,11 +77,11 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
   const [settling, setSettlingState] = useState(false);
   const settlingRef = useRef(false);
   const [clockMs, setClockMs] = useState(() => clockOf(game));
-  const [best, setBest] = useState(loadBest);
+  const [best, setBest] = useState(() => loadBest(scenario.recordKey));
   const [newBest, setNewBest] = useState(false);
   /** Only games with the default rules count for the record. */
-  const recordsBest = useRef(initialConfig === GAME_CONFIG);
-  const [records, setRecords] = useState(initialConfig === GAME_CONFIG);
+  const recordsBest = useRef(initialConfig === scenario.config);
+  const [records, setRecords] = useState(initialConfig === scenario.config);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
   const [activity, setActivity] = useState(0);
@@ -104,14 +105,14 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     setGame(state);
     setClockMs(clockOf(state));
     setPhase('over');
-    const isBest = recordsBest.current && state.score > loadBest();
+    const isBest = recordsBest.current && state.score > loadBest(scenario.recordKey);
     if (isBest) {
-      saveBest(state.score);
+      saveBest(scenario.recordKey, state.score);
       setBest(state.score);
       setNewBest(true);
     }
     feedbackRef.current.onFinish?.(isBest);
-  }, [setPhase]);
+  }, [scenario, setPhase]);
 
   // Clock: runs only while playing and (by rule) not while a move's animations play.
   const clockStopped = phase !== 'playing' || config.mode !== 'time' || (animating && config.pauseClockDuringResolution);
@@ -246,7 +247,7 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
     const config = options.config ?? gameRef.current.config;
-    recordsBest.current = config === GAME_CONFIG && !options.board;
+    recordsBest.current = config === scenario.config && !options.board;
     setRecords(recordsBest.current);
     const fresh = createGame({ seed: options.seed ?? newSeed(), config, board: options.board });
     gameRef.current = fresh;
@@ -260,7 +261,7 @@ export function useGame(initialConfig: GameConfig = GAME_CONFIG, feedback: GameF
     pausedInCountdown.current = false;
     setRound((r) => r + 1);
     setPhase('ready');
-  }, [setAnimating, setPhase, setSettling, stopFrames]);
+  }, [scenario, setAnimating, setPhase, setSettling, stopFrames]);
 
   useEffect(() => () => {
     timers.current.forEach((id) => window.clearTimeout(id));

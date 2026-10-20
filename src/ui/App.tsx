@@ -1,11 +1,12 @@
 // Portrait game screen: HUD on top, the board in the middle, discreet controls at thumb height.
 import { useEffect, useRef, useState } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
-import { GAME_CONFIG, makeConfig } from '../engine/config';
+import { makeConfig } from '../engine/config';
 import { VARIANTS } from '../engine/variants';
 import { minEnergyGain } from '../engine/score';
 import type { GameConfig, GameStats } from '../engine/types';
-import { DEFAULT_THEME, themeLevels, type Theme } from '../themes';
+import { scenarioById } from '../scenarios';
+import { themeLevels, type Theme } from '../themes';
 import { Board } from './Board';
 import { STRINGS } from './strings';
 import { UI } from './uiConfig';
@@ -17,7 +18,6 @@ import { Ambient } from './fx/Ambient';
 import { countdownCue, finishCue, frameCue, rejectCue, traceStepCue, warningCue } from './feedback';
 import { loadFlag, saveFlag } from './storage';
 
-const theme = DEFAULT_THEME;
 function urlParam(name: string): string | null {
   try {
     return new URLSearchParams(window.location.search).get(name);
@@ -26,9 +26,12 @@ function urlParam(name: string): string | null {
   }
 }
 const debugEnabled = urlParam('debug') === '1';
+/** ?scenario=<id> picks the world (only the ocean for now). */
+const scenario = scenarioById(urlParam('scenario'));
+const theme = scenario.theme;
 /** ?variant=<key> plays a rule variant from the start (for testing on a phone); it doesn't count for the record. */
 const urlVariant = urlParam('variant');
-const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : GAME_CONFIG;
+const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : scenario.config;
 
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -39,12 +42,17 @@ export function App() {
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const soundRef = useRef(sound);
   useEffect(() => { soundRef.current = sound; }, [sound]);
-  const g = useGame(startConfig, {
+  const g = useGame(scenario, startConfig, {
     onFrame: (frame) => frameCue(frame, soundRef.current),
     onFinish: (newBest) => finishCue(newBest, soundRef.current),
     onCountdown: (count) => countdownCue(count, soundRef.current),
   });
   const config = g.config;
+
+  // The scenario's colours drive the whole screen (the stylesheet's defaults are the ocean's).
+  useEffect(() => {
+    for (const [name, color] of Object.entries(theme.palette)) document.documentElement.style.setProperty(`--${name}`, color);
+  }, []);
 
   // Browsers only allow sound after a touch: start the audio on each one (iPhone needs the touch to
   // end, and wakes it up again after a call or another app).
@@ -180,7 +188,7 @@ export function App() {
       </footer>
 
       {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} />}
-      {sheet === 'debug' && <DebugPanel game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
+      {sheet === 'debug' && <DebugPanel scenario={scenario} game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
       {g.phase === 'start' && !sheet && <StartScreen theme={theme} tierCount={config.tiers.length} onStart={g.begin} />}
       {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
