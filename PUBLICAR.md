@@ -59,6 +59,7 @@ npm run preview -- --host   # opcional: prova el build al mòbil abans de public
    ```
 3. Al repositori, ves a Settings → Pages → Source i tria "GitHub Actions".
 4. Després del primer push, el joc queda a `https://<usuari>.github.io/<repositori>/`.
+5. Domini propi (ara, `https://orcalunch.com/`): registres DNS cap a GitHub Pages, el domini a Settings → Pages i «Enforce HTTPS». `public/CNAME` porta el domini dins del build, i `VITE_SITE_URL` a `.env` ha de ser la mateixa adreça (la fan servir les previsualitzacions dels enllaços).
 
 ## 3. Provar-lo al mòbil
 - Obre l'adreça al mòbil i juga una partida sencera.
