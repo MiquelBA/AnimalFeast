@@ -2,9 +2,11 @@
 // opened from the trophy button (no score) it only shows the top players.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { STRINGS } from '../ui/strings';
-import { fetchRank, fetchTop, submitScore, type RankedScore } from './api';
+import { fetchRank, fetchTop, RejectedError, submitScore, type RankedScore } from './api';
 import { LEADERBOARD } from './config';
+import { nameIsClean } from './names';
 import { cleanName, loadPlayer, savePlayer, type Player } from './player';
+import { track } from './track';
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
@@ -16,6 +18,9 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
   const [status, setStatus] = useState<Status>('idle');
   const [top, setTop] = useState<readonly RankedScore[]>([]);
   const [rank, setRank] = useState<number | null>(null);
+  const [nameRefused, setNameRefused] = useState(false);
+  /** The server kept this score out (too many in a row, or a refused name). */
+  const [scoreRefused, setScoreRefused] = useState(false);
   /** This game's score is sent once, whatever happens to the screen. */
   const sent = useRef(false);
 
@@ -25,7 +30,11 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
       if (who && score && score > 0 && !sent.current) {
         // Marked before sending, so a second call meanwhile can't send it twice.
         sent.current = true;
-        await submitScore(ranking, who.id, who.name, score).catch((error: unknown) => { sent.current = false; throw error; });
+        await submitScore(ranking, who.id, who.name, score).catch((error: unknown) => {
+          if (error instanceof RejectedError) { setScoreRefused(true); return; }
+          sent.current = false;
+          throw error;
+        });
       }
       const [list, place] = await Promise.all([fetchTop(ranking, LEADERBOARD.topCount), score && score > 0 ? fetchRank(ranking, score) : null]);
       setTop(list);
@@ -38,6 +47,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
 
   // A known player's score goes straight in; a new player first picks a name.
   useEffect(() => {
+    if (score === undefined) track('ranking_view');
     void sync(player);
     // Once per end screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,6 +56,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
   const saveName = (e: FormEvent) => {
     e.preventDefault();
     if (!cleanName(draft)) return;
+    if (!nameIsClean(draft)) { setNameRefused(true); return; }
     const saved = savePlayer(draft, player);
     setPlayer(saved);
     setEditing(false);
@@ -67,10 +78,11 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
               autoComplete="nickname"
               enterKeyHint="done"
               placeholder={T.namePlaceholder}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => { setDraft(e.target.value); setNameRefused(false); }}
             />
             <button type="submit" disabled={!cleanName(draft)}>{T.save}</button>
           </div>
+          {nameRefused && <p className="lb-error">{T.badName}</p>}
         </form>
       ) : player && (
         <p className="lb-player">
@@ -84,7 +96,8 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
           {T.offline} <button type="button" className="link-btn" onClick={() => void sync(player)}>{T.retry}</button>
         </p>
       )}
-      {status === 'done' && rank !== null && player && sent.current && <p className="lb-rank">{T.rank(rank)}</p>}
+      {scoreRefused && <p className="lb-note">{T.refused}</p>}
+      {status === 'done' && rank !== null && player && sent.current && !scoreRefused && <p className="lb-rank">{T.rank(rank)}</p>}
       {status === 'done' && (top.length ? (
         <ol className="lb-list">
           {top.map((row, i) => (

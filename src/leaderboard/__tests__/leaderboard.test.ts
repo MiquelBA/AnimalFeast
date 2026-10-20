@@ -46,3 +46,17 @@ describe('player names', () => {
     expect(cleanName('   ')).toBe('');
   });
 });
+
+describe('name filter (same rules as the database)', () => {
+  it('reads accents, digits and symbols as letters', async () => {
+    const { normalizeName } = await import('../names');
+    expect(normalizeName('Fïll dé PÚ7A $')).toBe('filldeputas');
+    expect(normalizeName('N@n1')).toBe('nani');
+  });
+
+  it('refuses banned words hidden anywhere in a name and keeps ordinary names', async () => {
+    const { nameIsClean } = await import('../names');
+    for (const bad of ['Fill de puta', 'M3RDA', 'xX_fuck_Xx', 'h1tl3r']) expect(nameIsClean(bad), bad).toBe(false);
+    for (const ok of ['Miquel', 'Núria', 'Pola', 'Hancock', 'Joan Pau', 'Anna 2']) expect(nameIsClean(ok), ok).toBe(true);
+  });
+});

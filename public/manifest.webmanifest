@@ -1,0 +1,17 @@
+{
+  "name": "Animal Feast",
+  "short_name": "Animal Feast",
+  "description": "Encadena la cadena alimentària de l'oceà i fes reaccions explosives.",
+  "lang": "ca",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#083B66",
+  "theme_color": "#083B66",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -82,6 +82,8 @@ export const UI = {
   warningTickMs: 5000,
   /** End screen: score count-up and confetti (outside play, so not bound by maxAnimMs). */
   countUpMs: 500,
+  /** Longest feedback message (the database allows 1000). */
+  feedbackMaxChars: 1000,
   confettiMs: 1100,
   confettiPieces: 28,
 } as const;

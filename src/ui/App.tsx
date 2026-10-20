@@ -1,5 +1,5 @@
 // Portrait game screen: HUD on top, the board in the middle, discreet controls at thumb height.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { renderSprite } from '../assets/spriteRegistry';
 import { makeConfig } from '../engine/config';
 import { VARIANTS } from '../engine/variants';
@@ -7,6 +7,9 @@ import { minEnergyGain } from '../engine/score';
 import type { GameConfig, GameStats } from '../engine/types';
 import { Leaderboard } from '../leaderboard/Leaderboard';
 import { leaderboardEnabled } from '../leaderboard/config';
+import { sendFeedback, track } from '../leaderboard/track';
+import { installMode, onInstallChange, promptInstall } from './install';
+import { shareScore } from './share';
 import { scenarioById } from '../scenarios';
 import { themeLevels, type Theme } from '../themes';
 import { Board } from './Board';
@@ -34,6 +37,8 @@ const theme = scenario.theme;
 const urlVariant = urlParam('variant');
 const startConfig = urlVariant && VARIANTS[urlVariant] ? makeConfig(VARIANTS[urlVariant].overrides) : scenario.config;
 
+type Sheet = 'help' | 'debug' | 'ranking' | 'feedback' | 'install';
+
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -45,10 +50,29 @@ export function App() {
   useEffect(() => { soundRef.current = sound; }, [sound]);
   const g = useGame(scenario, startConfig, {
     onFrame: (frame) => frameCue(frame, soundRef.current),
-    onFinish: (newBest) => finishCue(newBest, soundRef.current),
-    onCountdown: (count) => countdownCue(count, soundRef.current),
+    onFinish: (newBest, state) => {
+      finishCue(newBest, soundRef.current);
+      track('game_end', state.score, {
+        scenario: scenario.id, ranked: g.records, chains: state.chains, frenzies: state.frenzies,
+        whirlpools: state.whirlpools, bestMove: state.bestMove, moves: state.moves,
+      });
+    },
+    onCountdown: (count) => {
+      countdownCue(count, soundRef.current);
+      if (count === 0) track('game_start', undefined, { scenario: scenario.id, ranked: g.records });
+    },
   });
   const config = g.config;
+
+  // Anonymous stats: one visit per page load.
+  useEffect(() => track('visit', undefined, { scenario: scenario.id, standalone: installMode() === null }), []);
+  // The install offer can arrive (or go) at any time.
+  const [install, setInstall] = useState(installMode);
+  useEffect(() => onInstallChange(() => setInstall(installMode())), []);
+  const offerInstall = async () => {
+    if (install === 'ios') { openSheet('install'); return; }
+    if (await promptInstall()) track('install');
+  };
 
   // The scenario's colours drive the whole screen (the stylesheet's defaults are the ocean's).
   useEffect(() => {
@@ -75,11 +99,11 @@ export function App() {
     const second = Math.ceil(g.clockMs / 1000);
     if (second > 0 && second !== lastTick.current) { lastTick.current = second; warningCue(soundRef.current); }
   }, [g.clockMs, g.phase, config.mode]);
-  const [sheet, setSheet] = useState<'help' | 'debug' | 'ranking' | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
   const [debugSetup, setDebugSetup] = useState<DebugSetup>({ variant: 'base' });
   const pausedForSheet = useRef(false);
 
-  const openSheet = (which: 'help' | 'debug' | 'ranking') => {
+  const openSheet = (which: Sheet) => {
     pausedForSheet.current = g.phase === 'playing' || g.phase === 'ready';
     g.pause();
     setSheet(which);
@@ -172,11 +196,20 @@ export function App() {
         </button>
       </footer>
 
-      {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} />}
+      {sheet === 'help' && <HelpModal theme={theme} config={config} onClose={closeSheet} onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined} />}
       {sheet === 'debug' && <DebugPanel scenario={scenario} game={g.game} setup={debugSetup} onStart={startDebugGame} onClose={closeSheet} />}
       {sheet === 'ranking' && <RankingModal ranking={scenario.rankingId} onClose={closeSheet} />}
+      {sheet === 'feedback' && <FeedbackModal context={{ scenario: scenario.id, phase: g.phase, score: g.game.score }} onClose={closeSheet} />}
+      {sheet === 'install' && <InstallModal onClose={closeSheet} />}
       {g.phase === 'start' && !sheet && (
-        <StartScreen theme={theme} tierCount={config.tiers.length} onStart={g.begin} onRanking={leaderboardEnabled() ? () => openSheet('ranking') : undefined} />
+        <StartScreen
+          theme={theme}
+          tierCount={config.tiers.length}
+          onStart={g.begin}
+          onRanking={leaderboardEnabled() ? () => openSheet('ranking') : undefined}
+          onFeedback={leaderboardEnabled() ? () => openSheet('feedback') : undefined}
+          onInstall={install ? () => void offerInstall() : undefined}
+        />
       )}
       {g.phase === 'paused' && !sheet && (
         <div className="overlay" onClick={g.resume}>
@@ -235,7 +268,7 @@ function FoodChain({ theme, tierCount, large = false }: { theme: Theme; tierCoun
   );
 }
 
-function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfig; onClose: () => void }) {
+function HelpModal({ theme, config, onClose, onFeedback }: { theme: Theme; config: GameConfig; onClose: () => void; onFeedback?: () => void }) {
   const tierCount = config.tiers.length;
   const levels = themeLevels(theme, tierCount);
   const rules = STRINGS.helpRules({
@@ -257,6 +290,7 @@ function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfi
         <ul className="rules">
           {rules.map((r) => <li key={r}>{r}</li>)}
         </ul>
+        {onFeedback && <p><button type="button" className="link-btn" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button></p>}
         <button className="primary-btn" onClick={onClose}>{STRINGS.close}</button>
       </div>
     </div>
@@ -303,7 +337,9 @@ function Confetti() {
 }
 
 /** The first tap starts the game (and, on phones, unlocks sound for the countdown). */
-function StartScreen({ theme, tierCount, onStart, onRanking }: { theme: Theme; tierCount: number; onStart: () => void; onRanking?: () => void }) {
+function StartScreen({ theme, tierCount, onStart, onRanking, onFeedback, onInstall }: {
+  theme: Theme; tierCount: number; onStart: () => void; onRanking?: () => void; onFeedback?: () => void; onInstall?: () => void;
+}) {
   const top = themeLevels(theme, tierCount)[tierCount - 1];
   const start = () => { unlockAudio(); onStart(); };
   return (
@@ -315,6 +351,12 @@ function StartScreen({ theme, tierCount, onStart, onRanking }: { theme: Theme; t
         <button className="start-ranking" onClick={(e) => { e.stopPropagation(); onRanking(); }}>
           <TrophyIcon /> {STRINGS.leaderboard.title}
         </button>
+      )}
+      {(onInstall || onFeedback) && (
+        <span className="start-links">
+          {onInstall && <button className="link-btn" onClick={(e) => { e.stopPropagation(); onInstall(); }}>📲 {STRINGS.install.button}</button>}
+          {onFeedback && <button className="link-btn" onClick={(e) => { e.stopPropagation(); onFeedback(); }}>💬 {STRINGS.feedback.button}</button>}
+        </span>
       )}
     </div>
   );
@@ -330,6 +372,62 @@ function RankingModal({ ranking, onClose }: { ranking: string; onClose: () => vo
         <button className="primary-btn" onClick={onClose} autoFocus>{STRINGS.close}</button>
       </div>
     </div>
+  );
+}
+
+/** A short message to us (stored with the phone's random id, the phase and the score). */
+function FeedbackModal({ context, onClose }: { context: Record<string, string | number>; onClose: () => void }) {
+  const T = STRINGS.feedback;
+  const [text, setText] = useState('');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || state === 'sending') return;
+    setState('sending');
+    try {
+      await sendFeedback(text.trim(), { ...context, ua: navigator.userAgent.slice(0, 200) });
+      setState('sent');
+    } catch {
+      setState('failed');
+    }
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <form className="sheet feedback" onClick={(e) => e.stopPropagation()} onSubmit={send} role="dialog" aria-modal="true" aria-label={T.title}>
+        <h2>{T.title}</h2>
+        {state === 'sent' ? <p>{T.thanks}</p> : (
+          <>
+            <p>{T.hint}</p>
+            <textarea value={text} maxLength={UI.feedbackMaxChars} rows={5} placeholder={T.placeholder} onChange={(e) => setText(e.target.value)} autoFocus />
+            {state === 'failed' && <p className="lb-error">{T.failed}</p>}
+            <button type="submit" className="primary-btn" disabled={!text.trim() || state === 'sending'}>{state === 'sending' ? T.sending : T.send}</button>
+          </>
+        )}
+        <button type="button" className="link-btn sheet-close" onClick={onClose}>{STRINGS.leaderboard.close}</button>
+      </form>
+    </div>
+  );
+}
+
+/** iPhone: how to add the game to the home screen (Safari has no install prompt). */
+function InstallModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.install.title}>
+        <h2>{STRINGS.install.title}</h2>
+        <ol className="rules">{STRINGS.install.iosSteps.map((s) => <li key={s}>{s}</li>)}</ol>
+        <button className="primary-btn" onClick={onClose} autoFocus>{STRINGS.close}</button>
+      </div>
+    </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 12 V19 H19 V12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -372,6 +470,11 @@ function GameOver({ title, stats, best, newBest, ranking, theme, tierCount, onRe
             <div key={label} style={{ animationDelay: `${120 + i * 60}ms` }}><dt>{label}</dt><dd>{value}</dd></div>
           ))}
         </dl>
+        {stats.score > 0 && (
+          <button className="share-btn" onClick={() => void shareScore(stats.score).then((shared) => shared && track('share', stats.score))}>
+            <ShareIcon /> {STRINGS.share.button}
+          </button>
+        )}
         <button className="primary-btn" onClick={onRestart} autoFocus>{STRINGS.playAgain}</button>
       </div>
     </div>

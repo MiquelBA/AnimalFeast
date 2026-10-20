@@ -57,7 +57,7 @@ function pickHint(board: Board, config: GameConfig): readonly Pos[] | null {
 /** Feedback hooks (sound, vibration): called as frames show and when the game ends. */
 export interface GameFeedback {
   readonly onFrame?: (frame: Frame) => void;
-  readonly onFinish?: (newBest: boolean) => void;
+  readonly onFinish?: (newBest: boolean, state: GameState) => void;
   /** Each countdown number (3, 2, 1), then 0 as play starts. */
   readonly onCountdown?: (count: number) => void;
 }
@@ -112,7 +112,7 @@ export function useGame(scenario: Scenario, initialConfig: GameConfig = scenario
       setBest(state.score);
       setNewBest(true);
     }
-    feedbackRef.current.onFinish?.(isBest);
+    feedbackRef.current.onFinish?.(isBest, state);
   }, [scenario, setPhase]);
 
   // Clock: runs only while playing and (by rule) not while a move's animations play.

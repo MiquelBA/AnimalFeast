@@ -1,5 +1,6 @@
 // The player on this device: a random id and the name they chose (no accounts).
 import { LEADERBOARD } from './config';
+import { deviceId } from './device';
 
 export interface Player {
   readonly id: string;
@@ -22,22 +23,13 @@ export function loadPlayer(): Player | null {
   }
 }
 
-/** Saves the name, keeping the device's id (or making one the first time). */
+/** Saves the name under this phone's id. */
 export function savePlayer(name: string, previous: Player | null): Player {
-  const player = { id: previous?.id ?? newId(), name: cleanName(name) };
+  const player = { id: previous?.id ?? deviceId(), name: cleanName(name) };
   try {
     localStorage.setItem(LEADERBOARD.playerKey, JSON.stringify(player));
   } catch {
     // Storage unavailable: the name lasts this visit only.
   }
   return player;
-}
-
-function newId(): string {
-  try {
-    return crypto.randomUUID();
-  } catch {
-    // Older browsers / insecure contexts: a random v4-shaped id.
-    return 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
-  }
 }
