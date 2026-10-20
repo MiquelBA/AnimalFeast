@@ -22,6 +22,11 @@ export const VARIANTS: Readonly<Record<string, { label: string; overrides: Confi
   'v0.4': { label: 'v0.4 (sense daurats ni pop)', overrides: { goldenChance: 0, wildChance: 0 } },
   tiers5: { label: '5 nivells (plàncton), pesos 24/24/22/18/12', overrides: FIVE_TIERS },
   tiers5x8: { label: '5 nivells en un tauler 8×8', overrides: { ...FIVE_TIERS, boardSize: 8 } },
+  lines: { label: 'cadenes espontànies (traç com ara)', overrides: { spontaneousLines: true, refillRerolls: 10 } },
+  linesCross: {
+    label: 'cadenes espontànies + traç en creu',
+    overrides: { spontaneousLines: true, adjacency: 4, refillRerolls: 100, minValidMoves: 2 },
+  },
   goldOnly: { label: 'només daurats (3%)', overrides: { wildChance: 0 } },
   wildOnly: { label: 'només pop (5%)', overrides: { goldenChance: 0 } },
   wild2: { label: 'pop 2% (abans)', overrides: { wildChance: 0.02 } },

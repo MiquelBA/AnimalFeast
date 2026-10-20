@@ -210,6 +210,9 @@ function HelpModal({ theme, config, onClose }: { theme: Theme; config: GameConfi
     chargers: levels.filter((_, i) => minEnergyGain(i + 1, config) > 0).map((l) => l.definite),
     top: levels[tierCount - 1].definite,
     frenzyBonusS: config.timeBonusMs.frenzy / 1000,
+    cross: config.adjacency === 4,
+    lines: config.spontaneousLines,
+    waves: config.waveMultipliers.slice(0, 2),
   });
   return (
     <div className="overlay" onClick={onClose}>
@@ -274,6 +277,7 @@ function GameOver({ title, stats, best, newBest, theme, tierCount, onRestart }: 
     [STRINGS.statChains, stats.chains],
     [STRINGS.statChains4, stats.chains4],
     [STRINGS.statFrenzies, stats.frenzies],
+    ...(stats.spontaneousChains ? [[STRINGS.statSpontaneous, stats.spontaneousChains] as [string, number]] : []),
     [STRINGS.statBestMove, stats.bestMove],
   ];
   return (

@@ -19,7 +19,7 @@ export interface Ghost {
 
 export type Effect =
   | { readonly type: 'points'; readonly pos: Pos; readonly points: number }
-  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'golden' | 'shuffle'; readonly value: number; readonly pos?: Pos }
+  | { readonly type: 'text'; readonly text: 'frenzy' | 'combo' | 'timeBonus' | 'multiplier' | 'golden' | 'shuffle' | 'wave'; readonly value: number; readonly pos?: Pos }
   | { readonly type: 'pop'; readonly id: number }
   | { readonly type: 'flash'; readonly pos: Pos };
 
@@ -50,9 +50,12 @@ export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[
   type Open = { kind: FrameKind; ghosts: Ghost[]; entering: Map<number, Pos>; effects: Effect[] };
   let current = null as Open | null;
   let pendingEffects: Effect[] = [];
+  /** Spontaneous chains of one wave share a frame: they're eaten at the same time. */
+  let openWave = 0;
 
   const open = (kind: FrameKind) => {
     flush();
+    openWave = 0;
     current = { kind, ghosts: [], entering: new Map(), effects: pendingEffects };
     pendingEffects = [];
   };
@@ -71,7 +74,12 @@ export function buildFrames(before: Board, events: readonly GameEvent[]): Frame[
         effect({ type: 'text', text: 'combo', value: e.count });
         break;
       case 'chain': {
-        open('eat');
+        const sameWave = e.wave > 0 && e.wave === openWave && current !== null;
+        if (!sameWave) {
+          open('eat');
+          openWave = e.wave;
+          if (e.wave > 0) effect({ type: 'text', text: 'wave', value: e.waveMultiplier });
+        }
         const predatorPos = e.path[e.path.length - 1];
         effect({ type: 'points', pos: predatorPos, points: e.points });
         if (e.lengthMultiplier > 1) effect({ type: 'text', text: 'multiplier', value: e.lengthMultiplier, pos: predatorPos });

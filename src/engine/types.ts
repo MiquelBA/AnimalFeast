@@ -82,6 +82,22 @@ export interface GameConfig {
   readonly goldenMultiplier: number;
   /** Chance that a spawned animal is a wildcard octopus (0 = off). */
   readonly wildChance: number;
+  /**
+   * Spontaneous chains: after pieces fall, a straight row or column of animals in food-chain order
+   * (as long as a chain) is eaten on its own, in waves, until none is left. Boards start without any.
+   */
+  readonly spontaneousLines: boolean;
+  /** Shortest straight line that is eaten on its own. */
+  readonly minLineLength: number;
+  /** Points multiplier of each wave of spontaneous chains (wave 1 first; the last one repeats). */
+  readonly waveMultipliers: readonly number[];
+  /** Safety cap on waves per move. */
+  readonly maxWaves: number;
+  /**
+   * Before shuffling, re-roll the species of the animals that just entered up to this many times,
+   * looking for enough possible chains (0 = off).
+   */
+  readonly refillRerolls: number;
 }
 
 /** A traced chain: cells in the order the finger visited them; atMs is game time (time mode). */
@@ -101,6 +117,9 @@ export interface GameStats {
   /** Chains that included a golden animal / a wildcard. */
   readonly goldenChains: number;
   readonly wildChains: number;
+  /** Spontaneous chains, and the most waves in one move. */
+  readonly spontaneousChains: number;
+  readonly maxWaves: number;
   readonly moves: number;
 }
 
@@ -130,6 +149,8 @@ export interface GameState {
   readonly shuffles: number;
   readonly goldenChains: number;
   readonly wildChains: number;
+  readonly spontaneousChains: number;
+  readonly maxWaves: number;
   readonly gameOver: boolean;
   readonly history: readonly Move[];
 }
@@ -156,6 +177,9 @@ export type GameEvent =
       readonly comboMultiplier: number;
       /** goldenMultiplier ^ golden animals in the chain (1 if none). */
       readonly goldenMultiplier: number;
+      /** 0 for the traced chain; n for a spontaneous chain in the n-th wave. */
+      readonly wave: number;
+      readonly waveMultiplier: number;
     }
   | { readonly type: 'eat'; readonly prey: Animal; readonly from: Pos; readonly predatorId: number; readonly to: Pos; readonly frenzy: boolean }
   | { readonly type: 'energyGain'; readonly animalId: number; readonly pos: Pos; readonly from: number; readonly to: number }

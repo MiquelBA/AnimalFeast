@@ -14,8 +14,10 @@ export const STRINGS = {
   helpTitle: 'Com es juga',
   helpChain: 'La cadena alimentària',
   /** Help rules for the current rules: chain lengths, length multipliers and who gathers energy. */
-  helpRules: (o: { lengths: readonly number[]; multipliers: readonly [number, number][]; chargers: readonly string[]; top: string; frenzyBonusS: number }) => [
-    `Llisca el dit per sobre de ${listOr(o.lengths)} animals seguits de la cadena, en qualsevol direcció (també en diagonal i girant).`,
+  helpRules: (o: { lengths: readonly number[]; multipliers: readonly [number, number][]; chargers: readonly string[]; top: string; frenzyBonusS: number; cross: boolean; lines: boolean; waves: readonly number[] }) => [
+    o.cross
+      ? `Llisca el dit per sobre de ${listOr(o.lengths)} animals seguits de la cadena, en creu (amunt, avall, als costats) i girant, però no en diagonal.`
+      : `Llisca el dit per sobre de ${listOr(o.lengths)} animals seguits de la cadena, en qualsevol direcció (també en diagonal i girant).`,
     'Les preses desapareixen i el depredador es queda. Els animals de dalt cauen.',
     `Com més llarga la cadena, més punts: ${o.multipliers.map(([len, m]) => `×${m} amb ${len}`).join(', ')}. ${capitalize(o.top)} menja i se'n va.`,
     o.chargers.length > 1
@@ -24,6 +26,7 @@ export const STRINGS = {
     'Fes cadenes ràpides seguides per multiplicar els punts.',
     'Els animals daurats doblen els punts de la cadena on entren.',
     'El pop és un comodí: fa de l\'animal que falti a la cadena, però mai de depredador.',
+    ...(o.lines ? ['Cadenes espontànies: quan cauen els animals i en queden en fila o columna en l\'ordre de la cadena, el gran es menja els petits sol. Cada onada seguida multiplica més: ' + o.waves.map((m) => `×${m}`).join(', ') + '…'] : []),
   ],
   close: 'Entesos',
   gameOver: 'Temps!',
@@ -33,10 +36,12 @@ export const STRINGS = {
   statChains: 'Cadenes',
   statChains4: 'Cadenes de 4',
   statFrenzies: 'Frenesís',
+  statSpontaneous: 'Cadenes espontànies',
   statBestMove: 'Millor jugada',
   playAgain: 'Torna a jugar',
   frenzy: 'FRENESÍ!',
   golden: (m: number) => `DAURAT ×${m}!`,
+  wave: (m: number) => `REACCIÓ ×${m}!`,
   comboGreat: 'GENIAL!',
   comboAmazing: 'INCREÏBLE!',
   comboFeast: 'FESTÍ OCEÀNIC!',

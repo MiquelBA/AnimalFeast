@@ -36,6 +36,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   goldenChance: 0.03,
   goldenMultiplier: 2,
   wildChance: 0.05,
+  spontaneousLines: false,
+  minLineLength: 3,
+  waveMultipliers: [2, 3, 4, 5],
+  maxWaves: 30,
+  refillRerolls: 0,
 };
 
 export type ConfigOverrides = Partial<GameConfig>;

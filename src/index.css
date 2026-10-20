@@ -157,6 +157,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .tile.wild .tile-inner { background: rgba(232, 106, 146, 0.22); }
 .float-golden { top: 20%; font-size: 32px; color: var(--gold); }
+.float-wave { top: 62%; font-size: 30px; color: var(--foam); }
 
 /* Energy */
 .pips {

@@ -36,6 +36,8 @@ export const UI = {
     /** Sizes as fractions of a cell (every fourth one is big) and how far they fly, in cells. */
     big: 0.2, small: 0.12, reach: 1.3, frenzyReach: 2.4,
   },
+  /** Each wave of spontaneous chains sounds higher: pitch 1 + step × wave multiplier. */
+  wavePitchStep: 0.08,
   /** Clock ticks in the last seconds. */
   warningTickMs: 5000,
   /** End screen: score count-up and confetti (outside play, so not bound by maxAnimMs). */

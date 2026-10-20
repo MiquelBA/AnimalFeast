@@ -394,6 +394,7 @@ function floaterText(f: Floater): { text: string; className: string } | null {
     case 'multiplier': return { text: STRINGS.times(e.value), className: 'float-points float-mult' };
     case 'golden': return { text: STRINGS.golden(e.value), className: 'float-banner float-golden' };
     case 'shuffle': return { text: STRINGS.shuffle, className: 'float-banner float-shuffle' };
+    case 'wave': return { text: STRINGS.wave(e.value), className: 'float-banner float-wave' };
   }
 }
 

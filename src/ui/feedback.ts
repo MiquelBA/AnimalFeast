@@ -2,6 +2,7 @@
 import type { TraceStatus } from '../engine/chains';
 import { playSound } from './audio';
 import type { Frame } from './frames';
+import { UI } from './uiConfig';
 import { vibrate } from './haptics';
 
 /** Rising pitch while a chain grows: a semitone-ish step per cell. */
@@ -31,6 +32,8 @@ export function frameCue(frame: Frame, sound: boolean): void {
   } else if (frame.kind === 'shuffle') {
     play('shuffle');
   }
+  const wave = texts.find((t) => t.text === 'wave');
+  if (wave && sound) playSound('combo', 1 + UI.wavePitchStep * wave.value);
   if (texts.some((t) => t.text === 'golden')) play('golden');
   if (texts.some((t) => t.text === 'combo' && t.value >= 2)) play('combo');
   if (texts.some((t) => t.text === 'timeBonus')) play('timeBonus');
