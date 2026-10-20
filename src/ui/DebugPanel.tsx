@@ -4,6 +4,7 @@ import { boardToString, parseBoard } from '../engine/notation';
 import type { Board, GameConfig, GameMode, GameState } from '../engine/types';
 import { VARIANTS, variantConfig } from '../engine/variants';
 import type { Scenario } from '../scenarios';
+import { audioState } from './audio';
 import { makeLog } from './debugLog';
 import { STRINGS } from './strings';
 import type { NewGameOptions } from './useGame';
@@ -64,6 +65,7 @@ export function DebugPanel({ scenario, game, setup, onStart, onClose }: DebugPan
       <div className="sheet debug" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={T.title}>
         <h2>{T.title}</h2>
         <p className="debug-note">{T.current(game.seed, game.history.length)}</p>
+        <p className="debug-note">{T.audio(audioState())}</p>
         <label>
           <span>{T.seed}</span>
           <span className="debug-row">

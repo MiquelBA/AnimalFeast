@@ -2,8 +2,8 @@
 // depends on it.
 //
 // iPhone notes: Safari only starts audio inside a touch that ends (touchend/click), so unlockAudio
-// listens to those too; and it asks for the "playback" audio session (Safari 17+), so the game
-// sounds even with the silent switch on, like a music app.
+// listens to those too; it asks for the "playback" audio session (Safari 17+) and also loops a
+// silent <audio> (older iOS), so the game sounds even with the silent switch on, like a music app.
 
 export type SoundName =
   | 'eat' | 'golden' | 'combo' | 'frenzy'
@@ -145,30 +145,70 @@ let context: AudioContext | null = null;
 /** Effects go through a compressor so big hits don't clip. */
 let sfx: GainNode | null = null;
 let noise: AudioBuffer | null = null;
+/** A looping silent <audio>: on iPhone it puts the page in the "media" audio session, so Web Audio is heard. */
+let keepAlive: HTMLAudioElement | null = null;
 
-/** Call from a user gesture: creates or resumes the audio context. Safe to call often. */
+type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
+
+function createContext(): AudioContext | null {
+  const Ctor = window.AudioContext ?? (window as AudioWindow).webkitAudioContext;
+  if (!Ctor) return null;
+  const ctx = new Ctor();
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -12;
+  compressor.ratio.value = 8;
+  compressor.connect(ctx.destination);
+  sfx = ctx.createGain();
+  sfx.gain.value = 1;
+  sfx.connect(compressor);
+  noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+  const data = noise.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  return ctx;
+}
+
+/** Half a second of silence as a WAV file (8 kHz, 8-bit mono; 128 is silence). */
+function silentWav(): Blob {
+  const samples = 4000;
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const text = (at: number, s: string) => { for (let i = 0; i < s.length; i++) bytes[at + i] = s.charCodeAt(i); };
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples, true); text(8, 'WAVE');
+  text(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true); view.setUint32(28, 8000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+  text(36, 'data'); view.setUint32(40, samples, true);
+  bytes.fill(128, 44);
+  return new Blob([bytes], { type: 'audio/wav' });
+}
+
+function playKeepAlive(): void {
+  if (!keepAlive) {
+    keepAlive = document.createElement('audio');
+    keepAlive.setAttribute('x-webkit-airplay', 'deny');
+    keepAlive.preload = 'auto';
+    keepAlive.loop = true;
+    keepAlive.src = URL.createObjectURL(silentWav());
+    // Silent audio left playing in the background would show up in the phone's media controls.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) keepAlive?.pause(); });
+  }
+  if (keepAlive.paused) keepAlive.play()?.catch(() => { /* not inside a gesture yet: the next one retries */ });
+}
+
+/**
+ * Call from a user gesture: creates or wakes the audio context. Safe to call often; every touch
+ * calls it, so a context that iOS suspended or interrupted (a call, another app) comes back.
+ */
 export function unlockAudio(): void {
   try {
     // iPhone: play like a media app, so the silent switch doesn't mute the game (Safari 17+).
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
     if (session && session.type !== 'playback') session.type = 'playback';
-    if (!context) {
-      const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return;
-      context = new Ctor();
-      const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -12;
-      compressor.ratio.value = 8;
-      compressor.connect(context.destination);
-      sfx = context.createGain();
-      sfx.gain.value = 1;
-      sfx.connect(compressor);
-      noise = context.createBuffer(1, context.sampleRate, context.sampleRate);
-      const data = noise.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    }
-    // iOS also leaves the context 'interrupted' after a call or switching apps.
-    if (context.state !== 'running') void context.resume();
+    if (typeof document !== 'undefined' && !document.hidden) playKeepAlive();
+    // A closed context never plays again: start over with a new one.
+    if (context?.state === 'closed') context = null;
+    context ??= createContext();
+    if (!context) return;
+    if (context.state !== 'running') context.resume().catch(() => { /* retried on the next touch */ });
     // A silent blip inside the gesture is what actually wakes older iOS Safari.
     const blip = context.createBufferSource();
     blip.buffer = context.createBuffer(1, 1, context.sampleRate);
@@ -177,6 +217,11 @@ export function unlockAudio(): void {
   } catch {
     // No audio on this device: the game plays the same without it.
   }
+}
+
+/** The audio context's state, for the debug panel ('none' before the first touch). */
+export function audioState(): string {
+  return context?.state ?? 'none';
 }
 
 /** Plays a sound now; `pitch` scales every frequency. */

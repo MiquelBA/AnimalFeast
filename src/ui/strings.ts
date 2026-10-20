@@ -132,6 +132,7 @@ export const STRINGS = {
     export: 'Exporta les jugades',
     exported: 'Registre descarregat i copiat',
     current: (seed: number, moves: number) => `Partida actual: llavor ${seed}, ${moves} jugades`,
+    audio: (state: string) => `So: ${state}`,
     close: 'Tanca',
   },
 } as const;
